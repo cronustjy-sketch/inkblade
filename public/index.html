@@ -119,6 +119,13 @@ canvas{border-radius:10px;display:block;background:#2a3a2a;max-width:100%}
 .bchip.kick{background:linear-gradient(180deg,#5a2a18,var(--panel));border-color:#8a4a2a;color:#ffd0b0}
 .bchip.skill{background:linear-gradient(180deg,#2c2450,var(--panel));border-color:#5a4a9a;color:#d9c6ff}
 @media (max-width:640px){.hgrid,.ctlgrid{grid-template-columns:1fr}}
+.acct{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.acct .at{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.acct .at b{font-size:14px}.acct .at span{font-size:12px;color:var(--muted)}
+.acct .av{width:34px;height:34px;border-radius:50%}
+.gbtn{display:inline-flex;align-items:center;gap:8px;font:inherit;font-weight:700;color:#1f1f1f;background:#fff;border:1px solid #dadce0;border-radius:999px;padding:8px 16px;cursor:pointer}
+.gbtn:disabled{opacity:.5;cursor:wait}.gbtn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.gbtn .g{font-family:Arial,sans-serif;font-weight:700;font-size:16px;background:conic-gradient(from -45deg,#ea4335 0 25%,#fbbc05 0 50%,#34a853 0 75%,#4285f4 0);-webkit-background-clip:text;background-clip:text;color:transparent}
 .arena{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid #7a3a1c;border-radius:12px;background:linear-gradient(135deg,#3a1a12,var(--panel) 70%)}
 .arena-t{display:flex;flex-direction:column;gap:2px}
 .arena-n{font-family:var(--f-display);font-size:26px;color:#ffb02e}
@@ -230,7 +237,68 @@ const overlay=$('overlay');
 const KEY='stick-legion-ch1';
 let save={cleared:{},growth:{str:0,def:0,spd:0,cmd:0}};
 try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.growth)save=s;}catch(e){}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(save));}catch(e){}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(save));}catch(e){}if(fbUser)queueCloud()}
+
+// ---------- Google login + cloud save (Firebase) ----------
+const FB_CFG={apiKey:"AIzaSyDOZAxglNEeHgFqjF9USkTUOP14iy0RG0I",authDomain:"inkblade-61c53.firebaseapp.com",projectId:"inkblade-61c53",
+  storageBucket:"inkblade-61c53.firebasestorage.app",messagingSenderId:"714292486742",appId:"1:714292486742:web:326feaa9ed86998dbdd1f7"};
+const FBV='10.12.2',FBURL=`https://www.gstatic.com/firebasejs/${FBV}/`;
+let fb=null,fbUser=null,fbState='loading',cloudState='',cloudTimer=0,fbErr='';
+const IN_APP=/WhatsApp|FBAN|FBAV|Instagram|Line\/|MicroMessenger|; wv\)/i.test(navigator.userAgent);
+const PREF_KEYS=['blood','rotate','tipCtrl'];
+function saveScore(x){if(!x||!x.cleared)return -1;let st=0;for(const k in x.cleared)st+=x.cleared[k]||0;const g=x.growth||{};return st+((g.str||0)+(g.def||0)+(g.spd||0)+(g.cmd||0))*.01}
+function mergeSaves(local,remote){
+  const base=saveScore(remote)>saveScore(local)?remote:local;
+  const out=JSON.parse(JSON.stringify(base));out.cleared=out.cleared||{};out.growth=out.growth||{str:0,def:0,spd:0,cmd:0};
+  for(const src of [local,remote]){if(!src||!src.cleared)continue;for(const k in src.cleared)out.cleared[k]=Math.max(out.cleared[k]||0,src.cleared[k]||0)}
+  for(const k of PREF_KEYS)if(local&&k in local)out[k]=local[k];
+  return out;
+}
+async function initFB(){
+  try{
+    const [A,U,F]=await Promise.all([import(FBURL+'firebase-app.js'),import(FBURL+'firebase-auth.js'),import(FBURL+'firebase-firestore.js')]);
+    const app=A.initializeApp(FB_CFG),auth=U.getAuth(app),db=F.getFirestore(app);
+    fb={auth,db,U,F};fbState='ready';renderAcct();
+    U.getRedirectResult(auth).catch(e=>{fbErr=e.code||'';renderAcct()});
+    U.onAuthStateChanged(auth,async u=>{fbUser=u;renderAcct();if(u)await pullCloud()});
+  }catch(e){fbState='off';renderAcct()}
+}
+async function pullCloud(){
+  try{cloudState='同步中…';renderAcct();
+    const ref=fb.F.doc(fb.db,'players',fbUser.uid);const snap=await fb.F.getDoc(ref);
+    if(snap.exists()){let remote=null;try{remote=JSON.parse(snap.data().save)}catch(e){}if(remote)save=mergeSaves(save,remote)}
+    try{localStorage.setItem(KEY,JSON.stringify(save))}catch(e){}
+    await pushCloud();
+    if(mode==='map')showMap();
+  }catch(e){cloudState='云端同步失败';fbErr=e.code||'';renderAcct()}
+}
+function queueCloud(){clearTimeout(cloudTimer);cloudState='等待保存…';cloudTimer=setTimeout(pushCloud,1500)}
+async function pushCloud(){
+  if(!fb||!fbUser)return;
+  try{await fb.F.setDoc(fb.F.doc(fb.db,'players',fbUser.uid),{save:JSON.stringify(save),name:fbUser.displayName||'',updated:fb.F.serverTimestamp()},{merge:true});cloudState='已保存到云端 ✓'}
+  catch(e){cloudState='保存失败';fbErr=e.code||''}
+  renderAcct();
+}
+async function fbLogin(){
+  if(!fb)return;const p=new fb.U.GoogleAuthProvider();fbErr='';
+  try{await fb.U.signInWithPopup(fb.auth,p)}
+  catch(e){if(/popup-blocked|operation-not-supported|web-storage-unsupported/.test(e.code||''))fb.U.signInWithRedirect(fb.auth,p);
+    else if(!/popup-closed|cancelled-popup/.test(e.code||'')){fbErr=e.code||'unknown';renderAcct()}}
+}
+function renderAcct(){
+  const el=document.getElementById('acct');if(!el)return;
+  if(fbState==='off'){el.hidden=true;return}el.hidden=false;
+  const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  if(fbUser){
+    el.innerHTML=`${fbUser.photoURL?`<img class="av" src="${esc(fbUser.photoURL)}" alt="" referrerpolicy="no-referrer">`:''}<div class="at"><b>${esc(fbUser.displayName||'玩家')}</b><span>${esc(cloudState||'云端存档已开启')}${fbErr?` · ${esc(fbErr)}`:''}</span></div><button class="btn" type="button" id="fbOut">退出登录</button>`;
+    document.getElementById('fbOut').onclick=()=>{fb.U.signOut(fb.auth);cloudState=''};
+  }else if(IN_APP){
+    el.innerHTML=`<div class="at"><b>☁️ 想要云端存档？</b><span>WhatsApp / Instagram 里不能用 Google 登录。请点右上角 ⋮ 或「…」→ 用 Chrome / Safari 打开这个网页。</span></div>`;
+  }else{
+    el.innerHTML=`<button class="gbtn" type="button" id="fbIn"${fbState!=='ready'?' disabled':''}><span class="g">G</span>使用 Google 登录</button><div class="at"><span>${fbState==='ready'?'登录后进度保存到云端，换手机、换电脑都不会丢。':'正在连接云端…'}${fbErr?` · 登录失败（${esc(fbErr)}）`:''}</span></div>`;
+    document.getElementById('fbIn').onclick=fbLogin;
+  }
+}
 
 const GROWTH={
   str:{n:'力量',e:'Strength',d:'所有士兵攻击 +15%，怒斩伤害提升。'},
@@ -762,6 +830,7 @@ function showMap(){
     nodes+=`<button class="node${boss?' boss':''}${i===nx?' next':''}" type="button" data-lv="${i}" ${open?'':'disabled'}>
       <span class="tag">${boss?'BOSS':'LEVEL'}</span><span class="lv">${i}</span><span class="st">${st?'★'.repeat(st)+'☆'.repeat(3-st):(open?'出战':'—')}</span></button>`}
   overlay.innerHTML=`<div class="panel">
+    <div class="acct" id="acct" hidden></div>
     <h2>第一章 · 新兵的觉醒<small>Chapter 1 · Grassland Kingdom · Levels 1–10</small></h2>
     <p>派出士兵推进战线，摧毁敌方基地。第5关和第10关有首领坐镇：首领存活时，敌方基地有护盾。每次首次通关，选择一条永久成长路线。</p>
     ${growthChips()}
@@ -778,7 +847,7 @@ function showMap(){
   $('pvp2').onclick=()=>arenaHelp(false);$('pvp1').onclick=()=>arenaHelp(true);
   $('resetBtn').addEventListener('click',e=>{if(!resetArm){resetArm=true;e.target.textContent='再点一次确认重置';return}
     save={cleared:{},growth:{str:0,def:0,spd:0,cmd:0}};persist();showMap()});
-  $('lvChip').innerHTML='地图';refreshButtons();
+  $('lvChip').innerHTML='地图';refreshButtons();renderAcct();
 }
 function showResult(win){
   mode='result';overlay.hidden=false;
@@ -1195,7 +1264,7 @@ function loop(now){
   uiT+=dt;if(uiT>.1){uiT=0;if(mode==='battle')refreshButtons()}
   requestAnimationFrame(loop);
 }
-showMap();requestAnimationFrame(loop);
+showMap();requestAnimationFrame(loop);initFB();
 })();
 </script>
 </body>
