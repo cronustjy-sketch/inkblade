@@ -1425,7 +1425,7 @@ function showMap(){
       <button class="tile t-sh" type="button" id="mSh"><span class="ti">🛒</span><span class="tn">商店</span><span class="ts">英雄 · 装备 · 宠物 · 皮肤 · 药水${pot?` · 背包 ${pot} 瓶`:''}</span><span class="tb">🪙 ${coins()}</span></button>
     </div>
     <div class="row mfoot"><button class="btn primary" type="button" id="goBtn">${nx>MAXLV?'重玩第'+MAXLV+'关':'快速开始 · 第'+nx+'关'}</button>
-      <button class="btn" type="button" id="skinBtn">画风：${skinOn()?'墨刃':'经典火柴人'}</button><button class="btn" type="button" id="langBtn">🌐 ${LANGS.find(l=>l[0]===lang())[1]}</button>${touchDev?`<button class="btn" type="button" id="rotMenu">📱 ${save.rotate===false?'横屏':'竖屏'}</button>`:''}<button class="btn" type="button" id="frBtn">👥 好友对决</button><button class="btn" type="button" id="tutBtn">📖 教学</button><button class="btn" type="button" id="credBtn">⭐ 制作团队</button><button class="btn admin-only adm" type="button" id="admMenu">🛠️ 管理员</button><button class="btn" type="button" id="bloodMenu">血效：${bloodOn()?'开':'关'}</button><button class="btn" type="button" id="sfxMenu">🔊 音效：${save.sfx===false?'关':'开'}</button><button class="btn" type="button" id="musMenu">🎵 音乐：${save.music===false?'关':'开'}</button><button class="btn" type="button" id="voiceMenu">🗣️ 语音：${save.voice===false?'关':'开'}</button></div>
+      <button class="btn" type="button" id="skinBtn">画风：${skinOn()?'墨刃':'经典火柴人'}</button><button class="btn" type="button" id="langBtn">🌐 ${LANGS.find(l=>l[0]===lang())[1]}</button>${touchDev?`<button class="btn" type="button" id="rotMenu">📱 ${save.rotate===false?'横屏':'竖屏'}</button>`:''}<button class="btn" type="button" id="frBtn">👥 好友对决</button><button class="btn" type="button" id="tutBtn">📖 教学</button><button class="btn" type="button" id="credBtn">⭐ 制作团队</button><button class="btn admin-only adm" type="button" id="admMenu">🛠️ 管理员</button><button class="btn" type="button" id="bloodMenu">血效：${bloodOn()?'开':'关'}</button><button class="btn" type="button" id="sfxMenu">🔊 音效：${save.sfx===false?'关':'开'}</button><button class="btn" type="button" id="musMenu">🎵 音乐：${save.music===false?'关':'开'}</button></div>
     <div class="madeby">游戏制作：<b>Junyuan</b> · © 2026</div>
   </div>`;
   $('credBtn').onclick=showCredits;
@@ -1438,7 +1438,7 @@ function showMap(){
   $('langBtn').onclick=()=>{const i=LANGS.findIndex(l=>l[0]===lang());save.lang=LANGS[(i+1)%LANGS.length][0];persist();document.__wasTr=true;applyLang();showMap();refreshButtons();bloodLabel()};
   $('bloodMenu').onclick=()=>{save.blood=!bloodOn();persist();bloodLabel();showMap()};
   $('sfxMenu').onclick=()=>{save.sfx=save.sfx===false;persist();ac();showMap();sfx('coin')};
-  $('voiceMenu').onclick=()=>{save.voice=save.voice===false;persist();showMap();if(save.voice!==false)say('冲啊！')};$('musMenu').onclick=()=>{save.music=save.music===false;persist();ac();showMap()};
+  $('musMenu').onclick=()=>{save.music=save.music===false;persist();ac();showMap()};
   renderAcct();
 }
 let curCh=0;
@@ -2763,11 +2763,11 @@ function voice(f0,vw,d,f0e,v,delay,vib){const a=AC;if(!a||save.sfx===false||a.st
   g.connect(MG);o.start(t);lfo.start(t);o.stop(t+d+.05);lfo.stop(t+d+.05);noise(Math.min(.05,d*.3),(v||.1)*.45,2800,delay,'bandpass')}
 const VL={};function vgap(k,ms){const n=performance.now();if(VL[k]&&n-VL[k]<ms)return false;VL[k]=n;return true}
 function unitPitch(u){return (u.hero?(u.hk==='titan'?95:u.hk==='assassin'?190:u.hk==='mage'?175:u.hk==='knight'?130:160):VOX[u.boss?'boss':u.type]||150)*(u.team?.9:1)*(.92+Math.random()*.16)}
-function gruntSound(u,crit){if(!u||B&&B.units.length>120&&!u.hero)return;
+function gruntSound(u,crit){return;if(!u||B&&B.units.length>120&&!u.hero)return;
   if(u.hero){if(!vgap('hg',crit?0:260))return;const f=unitPitch(u);crit?voice(f*1.25,'ah',.2,f*.9,.09):(Math.random()<.35&&voice(f,'eh',.1,f*.85,.05));return}
   if(!vgap('g',220)||Math.random()>(u.big||u.boss?.3:.1))return;const f=unitPitch(u);
   if(u.type==='witch')voice(f,'ee',.16,f*1.3,.06,0,14);else voice(f,u.big||u.boss?'oh':'uh',u.big||u.boss?.2:.1,f*.8,u.big||u.boss?.12:.06)}
-function deathSound(u){
+function deathSound(u){sfx(u.big||u.boss?'bigdie':'die');return;
   if(save.sfx===false||!AC||AC.state!=='running')return;
   if(!vgap('d'+(u.big||u.boss?'b':''),u.boss?0:85))return;const f=unitPitch(u);
   noise(u.big||u.boss?.4:.14,u.big||u.boss?.25:.12,u.big||u.boss?300:700);
@@ -2778,7 +2778,7 @@ function deathSound(u){
   if(u.hero){voice(f*1.3,'ah',.6,f*.55,.15,0,7);return}
   voice(f*1.35,Math.random()<.5?'ah':'eh',.28+Math.random()*.12,f*.6,.05,0,7)}
 // spoken battle cries (browser speech)
-function say(zh,pitch){
+function say(zh,pitch){return;
   if(save.voice===false||save.sfx===false||!window.speechSynthesis)return;
   try{const L=lang();if(L!=='zh')return;const txt=zh;const u=new SpeechSynthesisUtterance(txt);u.lang=L==='zh'?'zh-CN':L==='ms'?'ms-MY':'en-US';
     const vs=speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.replace('_','-').toLowerCase().startsWith(u.lang.slice(0,2).toLowerCase()));if(vs.length)u.voice=vs[0];
