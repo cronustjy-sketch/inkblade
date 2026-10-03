@@ -788,7 +788,7 @@ function drawUlt(){
 function bossAlive(){return B.units.some(u=>u.boss)||(B.C.boss&&!B.bossSpawned)}
 let ATK=null;
 function hit(u,d,col,src){if(u.inv>0)return;sfx('hit');if(B.admGod&&u.hero)return;if(u.team===0&&!B.C.duel){if(B.wall>0)d*=.4;d*=1-.04*gear('helm')}
-  if(B.units.length<110)for(let i=0;i<2;i++)B.fx.push({x:u.x,y:GY+u.lane-(u.big?40:22),vx:(Math.random()-.5)*160,vy:-40-Math.random()*120,t:.22,c:i?'#fff6c8':'#ffd36b',spark:1});if(ATK&&ATK.team!==u.team)u.killer=ATK;if(u.armor)d*=1-u.armor;u.hp-=d;if(src)u.lastBy=src;u.flash=.12;B.texts.push({x:u.x,y:GY+u.lane-(u.boss?95:46),t:.8,s:Math.round(d),c:col||(u.team?'#fff':'#ff9a8a')});
+  if(B.units.length<110&&Math.random()<.5)B.fx.push({x:u.x,y:GY+u.lane-(u.big?40:22),vx:(Math.random()-.5)*120,vy:-40-Math.random()*80,t:.16,c:'#ffd36b',spark:1});if(ATK&&ATK.team!==u.team)u.killer=ATK;if(u.armor)d*=1-u.armor;u.hp-=d;if(src)u.lastBy=src;u.flash=.12;B.texts.push({x:u.x,y:GY+u.lane-(u.boss?95:46),t:.8,s:Math.round(d),c:col||(u.team?'#fff':'#ff9a8a')});
   if(bloodOn())bleed(u.x,GY+u.lane-(u.boss?55:24),GY+u.lane,u.boss?8:5,u.team?-1:1,160);
   else for(let i=0;i<4;i++)B.fx.push({x:u.x,y:GY+u.lane-(u.boss?50:20),vx:(Math.random()-.5)*120,vy:-Math.random()*120,t:.35,c:u.team?'#e8b44a':'#de4b3f'});}
 function bloodOn(){return save.blood!==false}
@@ -853,7 +853,7 @@ function update(dt){
     const reach=u.range+(best&&(best.boss||best.big)?18:0);
     if(best&&bd<=reach){attack(u,best);}
     else if(baseD<=u.range&&(!best||bd>baseD)){if(!(u.team===0&&bossAlive()))attackBase(u,base);else u.phase+=dt*2;}
-    else{u.x+=dir*u.speed*dt;u.phase+=dt*u.speed*.18;u.charged=0;if(B.units.length<90&&Math.random()<dt*(u.big?3:1.2))B.fx.push({x:u.x-dir*6,y:GY+u.lane,vx:-dir*(15+Math.random()*20),vy:-8-Math.random()*12,t:.45,c:'rgba(190,175,150,.55)',dust:1})}
+    else{u.x+=dir*u.speed*dt;u.phase+=dt*u.speed*.18;u.charged=0;}
   }
   if(B.ev&&B.ev.k==='frost')for(const u of B.units)if(u._px!==undefined)u.x=u._px+(u.x-u._px)*.45;
   // bases shoot
@@ -1084,9 +1084,6 @@ function drawSprite(u,o,key){
     const tilt=walking?Math.sin(ph*2)*.025:0,lean=atk*(heavy?.14:.28);
     ctx.translate(d.w/2,d.hy);ctx.rotate(tilt+lean);ctx.translate(-d.w/2,-d.hy);ctx.drawImage(o.up,0,0);ctx.restore();
   }
-  if(u.swing>0&&!u.dead&&!u.ranged&&!u.heal&&!o.l===false&&B&&B.units.length<120){const a=u.swing/.22,cx=x+dir*w*.12,cy=fy-hgt*.55,r=hgt*(heavy?.55:.62);
-    ctx.save();ctx.lineCap='round';ctx.strokeStyle=u.team?`rgba(255,190,170,${a*.55})`:u.hero?`rgba(255,226,140,${a*.75})`:`rgba(235,245,255,${a*.6})`;ctx.lineWidth=heavy?5:3;ctx.beginPath();
-    if(dir>0)ctx.arc(cx,cy,r,-1.3+(1-a)*.6,.5+(1-a)*.6);else ctx.arc(cx,cy,r,Math.PI-.5-(1-a)*.6,Math.PI+1.3-(1-a)*.6);ctx.stroke();ctx.restore()}
   unitTail(u,x,fy-hgt+(u.boss?10:6),1,dir);
 }
 function drawUnit(u){
@@ -1174,7 +1171,7 @@ function drawUnit(u){
 function unitTail(u,x,hy,s,dir){
   if(u.ghostly||u.nobar)return;
   if(u.dead){if(bloodOn()&&u.type!=='catapult'){ctx.fillStyle='#8f0e14';ctx.beginPath();ctx.arc(x+dir*1.5*s,hy+2*s,3*s,0,7);ctx.fill()}return}
-  {const p=u.hp/u.max;u.hl=u.hl===undefined||u.hl<p?p:Math.max(p,u.hl-.008);if(u.hp<u.max||u.hero||u.boss)bar(x,hy-(u.boss?24:u.hero?18:u.big?20:14),u.boss?70:u.hero?40:u.big?44:24,p,u.team?'#de4b3f':u.hero?'#f2b632':'#6cc070',u.hl)}
+  {const p=u.hp/u.max;u.hl=u.hl===undefined||u.hl<p?p:Math.max(p,u.hl-.008);bar(x,hy-(u.boss?24:u.hero?18:u.big?20:14),u.boss?70:u.hero?40:u.big?44:24,p,u.team?'#de4b3f':u.hero?'#f2b632':'#6cc070',u.hl)}
   if(u.rank){ctx.fillStyle=u.team?'#ff9a8a':'#ffd36b';ctx.font='700 11px "Chakra Petch",monospace';ctx.textAlign='center';ctx.fillText('★'.repeat(u.rank),x,hy-(u.big?24:18))}
   if(B&&u===B.ctrl&&!u.dead){const by=hy-(u.hero?30:24)+Math.sin(performance.now()/250)*2;ctx.fillStyle='#f2b632';ctx.beginPath();ctx.moveTo(x-6,by-8);ctx.lineTo(x+6,by-8);ctx.lineTo(x,by);ctx.fill();
     if(!u.hero){ctx.font='12px "Noto Sans SC",sans-serif';ctx.textAlign='center';ctx.fillText('附身',x,by-12)}}
@@ -2767,8 +2764,8 @@ function voice(f0,vw,d,f0e,v,delay,vib){const a=AC;if(!a||save.sfx===false||a.st
 const VL={};function vgap(k,ms){const n=performance.now();if(VL[k]&&n-VL[k]<ms)return false;VL[k]=n;return true}
 function unitPitch(u){return (u.hero?(u.hk==='titan'?95:u.hk==='assassin'?190:u.hk==='mage'?175:u.hk==='knight'?130:160):VOX[u.boss?'boss':u.type]||150)*(u.team?.9:1)*(.92+Math.random()*.16)}
 function gruntSound(u,crit){if(!u||B&&B.units.length>120&&!u.hero)return;
-  if(u.hero){if(!vgap('hg',crit?0:260))return;const f=unitPitch(u);crit?voice(f*1.25,'ah',.22,f*.9,.16):voice(f,'eh',.11,f*.85,.09);return}
-  if(!vgap('g',110)||Math.random()>(u.big||u.boss?.55:.22))return;const f=unitPitch(u);
+  if(u.hero){if(!vgap('hg',crit?0:260))return;const f=unitPitch(u);crit?voice(f*1.25,'ah',.2,f*.9,.09):(Math.random()<.35&&voice(f,'eh',.1,f*.85,.05));return}
+  if(!vgap('g',220)||Math.random()>(u.big||u.boss?.3:.1))return;const f=unitPitch(u);
   if(u.type==='witch')voice(f,'ee',.16,f*1.3,.06,0,14);else voice(f,u.big||u.boss?'oh':'uh',u.big||u.boss?.2:.1,f*.8,u.big||u.boss?.12:.06)}
 function deathSound(u){
   if(save.sfx===false||!AC||AC.state!=='running')return;
@@ -2779,11 +2776,11 @@ function deathSound(u){
   if(u.zombie){voice(f*.8,'uh',.5,f*.5,.1,0,13);return}
   if(u.type==='witch'){voice(f*1.1,'ee',.45,f*.55,.09,0,11);return}
   if(u.hero){voice(f*1.3,'ah',.6,f*.55,.15,0,7);return}
-  voice(f*1.35,Math.random()<.5?'ah':'eh',.32+Math.random()*.15,f*.6,.085,0,7)}
+  voice(f*1.35,Math.random()<.5?'ah':'eh',.28+Math.random()*.12,f*.6,.05,0,7)}
 // spoken battle cries (browser speech)
 function say(zh,pitch){
   if(save.voice===false||save.sfx===false||!window.speechSynthesis)return;
-  try{const L=lang(),txt=L==='zh'?zh:tr(zh);const u=new SpeechSynthesisUtterance(txt);u.lang=L==='zh'?'zh-CN':L==='ms'?'ms-MY':'en-US';
+  try{const L=lang();if(L!=='zh')return;const txt=zh;const u=new SpeechSynthesisUtterance(txt);u.lang=L==='zh'?'zh-CN':L==='ms'?'ms-MY':'en-US';
     const vs=speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.replace('_','-').toLowerCase().startsWith(u.lang.slice(0,2).toLowerCase()));if(vs.length)u.voice=vs[0];
     u.rate=1.15;u.pitch=pitch||1;u.volume=.9;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
 function heroPitch(){const k=B&&B.hero?B.hero.hk:curHero();return {titan:.5,knight:.75,assassin:1.3,mage:1.15}[k]||1}
