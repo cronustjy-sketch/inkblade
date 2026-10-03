@@ -874,7 +874,7 @@ function narrow(){return CW/CH<1.6}
 function resize(){
   dpr=Math.min(2,window.devicePixelRatio||1);
   const st=cv.parentElement;let w=st.clientWidth,h=st.clientHeight;if(!w||!h){w=W;h=H}
-  if(w/h>=1.6){const sc=Math.min(w/W,h/H);w=W*sc;h=H*sc}else{h=Math.min(h,w*1.2)}
+  if(w/h>=1.6){if(w/h<W/H){h=w*H/W}else if(w/h>4.2){w=h*4.2}}else{h=Math.min(h,w*1.2)}
   w=Math.floor(w);h=Math.floor(h);if(w===CW&&h===CH&&cv.width===Math.round(w*dpr))return;
   CW=w;CH=h;cv.style.width=w+'px';cv.style.height=h+'px';cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
 }
@@ -895,7 +895,7 @@ function camUpdate(dt){
   const k=Math.min(1,dt*3.5);cam.x+=(tx-cam.x)*k;cam.w+=(tw-cam.w)*k;
 }
 function worldT(){
-  const sc=CW/cam.w,hv=CH/sc;const x0=cam.x-cam.w/2;const y0=hv>=H?(H-hv)*.55:H-hv;
+  const sc=CW/cam.w,hv=CH/sc;const x0=cam.x-cam.w/2;const y0=hv>=H?(H-hv)*.55:Math.max(-40,Math.min(H-hv,GY+46-hv));
   ctx.setTransform(dpr*sc,0,0,dpr*sc,-x0*sc*dpr,-y0*sc*dpr);cam.sc=sc;cam.x0=x0;cam.y0=y0;
 }
 function paintBack(top,bot){ctx.setTransform(dpr,0,0,dpr,0,0);const g=ctx.createLinearGradient(0,0,0,CH);g.addColorStop(0,top);g.addColorStop(1,bot);ctx.fillStyle=g;ctx.fillRect(0,0,CW,CH)}
