@@ -376,7 +376,11 @@ const SKILLS={
   rain:{n:'剑雨',e:'Sword rain · 天降飞剑',key:'F',unlock:6}
 };
 const keys={l:0,r:0};
-const BOSSES={5:{name:'石拳首领',hp:950,atk:26},10:{name:'草原霸主',hp:1900,atk:34}};
+const BOSSES={5:{name:'石拳首领',hp:950,atk:26},10:{name:'草原霸主',hp:1900,atk:34},15:{name:'熔岩巨魔',hp:3600,atk:46},20:{name:'墨刃魔王',hp:6000,atk:58}};
+const MAXLV=20;
+const CHAPTERS=[{n:1,a:1,b:10,t:'第一章 · 新兵的觉醒',e:'Chapter 1 · Grassland',d:'派出士兵推进战线，摧毁敌方基地。第5关和第10关有首领：首领存活时敌方基地有护盾。'},
+  {n:2,a:11,b:20,t:'第二章 · 烈焰之地',e:'Chapter 2 · Land of Flames',d:'火山地带：天上会掉陨石，地上红圈＝快躲（敌我都会被砸）。敌人更强，还会带投石车。第15关和第20关有首领。'}];
+function chapterOf(n){return n>10?CHAPTERS[1]:CHAPTERS[0]}
 
 function g(){return save.growth}
 const SHOP={
@@ -402,7 +406,9 @@ function owned(id){return id==='hero_gold'||id==='army_b'||!!(save.owned&&save.o
 function heroSkinKey(){const s=SHOP.skins.find(x=>x.id===save.heroSkin);return s&&owned(s.id)?s.k:'hero_0'}
 function armySuffix(){const s=SHOP.skins.find(x=>x.id===save.armySkin);return s&&owned(s.id)?s.suf:''}
 function mods(){const G=g();return{atk:1+.15*G.str,hp:1+.15*G.def,spd:1+.1*G.spd,cap:50+Math.min(4,G.cmd),regen:10+1.5*G.cmd,baseHp:500+60*G.def,skillDmg:70*(1+.15*G.str),skillCd:Math.max(5,11-G.spd*.8),cds:{slash:Math.max(5,11-G.spd*.8),dash:6/(1+.1*G.spd),rally:18/(1+.1*G.spd),rain:22/(1+.1*G.spd)}}}
-function cfg(n){return{mult:1+(n-1)*.11,interval:Math.max(1,3.2-n*.2),baseHp:420+n*70,boss:BOSSES[n]||null,cap:10+2*n,types:POOL[n]}}
+function cfg(n){const full=['soldier','archer','spear','shield','witch','assassin','priest','giant','cavalry'];
+  return{mult:1+(n-1)*.11,interval:Math.max(.9,3.2-n*.2),baseHp:420+n*70,boss:BOSSES[n]||null,cap:Math.min(36,10+2*n),
+    types:n<=10?POOL[n]:n<13?full:full.concat(['catapult','soldier','archer']),lava:n>10}}
 
 // ---------- battle state ----------
 let B=null,paused=false,mode='map';
@@ -422,6 +428,7 @@ function startLevel(n){
     :nu?{a:`新兵种：${nu.n}！`,b:`${nu.d}${nw?` · 新技能：${nw[1].n}（${nw[1].key}）`:''}`,t:4.5}:nw?{a:`新技能解锁：${nw[1].n}`,b:`按 ${nw[1].key} 或点按钮 · ${nw[1].e}`,t:4.5}:null;
   if(B.pots.length&&!B.banner)B.banner={a:'药水生效！',b:B.pots.map(id=>SHOP.potions.find(x=>x.id===id).n).join(' · '),t:2.5};
   document.body.classList.remove('inmenu');
+  {const C=chapterOf(n);document.querySelector('.title small').textContent=C.e;if(n===11)B.banner={a:'第二章：烈焰之地',b:'小心天降陨石！地上出现红圈就快躲开',t:4.5}}
   mode='battle';paused=false;overlay.hidden=true;$('campCtrl').hidden=false;$('pvpCtrl').hidden=true;P=null;$('pauseBtn').textContent='暂停';
   $('lvChip').innerHTML=`第 <b>${n}</b> 关${C.boss?' · BOSS':''}`;
   refreshButtons();
@@ -576,6 +583,11 @@ function update(dt){
   }
   B.shots=B.shots.filter(s=>!s.dead);
   B.units.forEach(u=>{if(u.hp<=0)die(u)});
+  if(B.C.lava){B.metT=(B.metT??6)-dt;if(B.metT<=0){B.metT=4+Math.random()*4;B.mets=B.mets||[];B.mets.push({x:150+Math.random()*(W-300),warn:1.2,y:-60})}
+    for(const m of B.mets||[]){if(m.warn>0){m.warn-=dt;continue}m.y+=900*dt;
+      if(m.y>=GY){m.done=1;B.units.forEach(u=>{if(!u.garrison&&!u.boss&&Math.abs(u.x-m.x)<48)hit(u,45+B.n*3,'#ffb02e')});
+        B.fx.push({ring:1,x:m.x,y:GY+6,t:.45,col:'rgba(255,140,40,'});for(let i=0;i<14;i++)B.fx.push({x:m.x,y:GY,vx:(Math.random()-.5)*300,vy:-Math.random()*300,t:.7,c:i%2?'#ffb02e':'#5a3a2a'})}}
+    if(B.mets)B.mets=B.mets.filter(m=>!m.done)}
   B.units=B.units.filter(u=>u.hp>0);
   for(const f of B.fx){if(f.sword){if(f.stuck){f.t-=dt;continue}f.y+=f.vy*dt;if(f.y>=f.gy){f.y=f.gy;f.stuck=1;f.t=.6;
         B.units.forEach(o=>{if(o.team===1&&Math.abs(o.x-f.x)<22)hit(o,14*B.M.atk,'#cfe3ff','hero')});
@@ -663,6 +675,17 @@ function paintBack(top,bot){ctx.setTransform(dpr,0,0,dpr,0,0);const g=ctx.create
 
 const hills=[...Array(7)].map((_,i)=>({x:i*170-40,r:120+((i*53)%60)}));
 function drawBg(t){
+  if(B&&B.C&&B.C.lava){
+    const sky=ctx.createLinearGradient(0,0,0,GY);sky.addColorStop(0,'#1d1218');sky.addColorStop(.6,'#5a2416');sky.addColorStop(1,'#b0521c');
+    ctx.fillStyle='#1d1218';ctx.fillRect(0,-600,W,600);ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(255,120,40,.35)';ctx.beginPath();ctx.arc(780,90,40,0,7);ctx.fill();
+    ctx.fillStyle='#2a1a1c';for(let i=0;i<7;i++){const x=i*170-40;ctx.beginPath();ctx.moveTo(x-60,GY);ctx.lineTo(x+40,GY-150-(i*53)%70);ctx.lineTo(x+140,GY);ctx.fill();
+      ctx.fillStyle='rgba(255,110,30,.6)';ctx.beginPath();ctx.moveTo(x+30,GY-140-(i*53)%70);ctx.lineTo(x+50,GY-140-(i*53)%70);ctx.lineTo(x+46,GY-100);ctx.fill();ctx.fillStyle='#2a1a1c'}
+    const gr=ctx.createLinearGradient(0,GY-20,0,H);gr.addColorStop(0,'#4a3028');gr.addColorStop(1,'#241614');
+    ctx.fillStyle=gr;ctx.fillRect(0,GY-22,W,H+600);
+    ctx.strokeStyle='rgba(255,110,30,.55)';ctx.lineWidth=2;
+    for(let i=0;i<14;i++){const x=(i*137)%W,y=GY+8+((i*41)%60);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+18,y+4);ctx.lineTo(x+30,y-2);ctx.stroke()}
+    return}
   const sky=ctx.createLinearGradient(0,0,0,GY);sky.addColorStop(0,'#2b4a63');sky.addColorStop(.65,'#7fa78c');sky.addColorStop(1,'#cfd8a1');
   ctx.fillStyle='#2b4a63';ctx.fillRect(0,-600,W,600);ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
   ctx.fillStyle='rgba(255,236,180,.85)';ctx.beginPath();ctx.arc(780,90,34,0,7);ctx.fill();
@@ -847,6 +870,9 @@ function draw(){
     ctx.strokeStyle='#1a1512';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(fx+30,GY-24);ctx.lineTo(fx+30,GY-50);ctx.stroke();ctx.fillStyle='#5b9be6';ctx.beginPath();ctx.moveTo(fx+30,GY-50);ctx.lineTo(fx+46,GY-45);ctx.lineTo(fx+30,GY-40);ctx.fill()}
   const garN=B.units.filter(u=>u.garrison).length;
   if(garN){ctx.fillStyle='#cfe3ff';ctx.font='700 13px "Chakra Petch",monospace';ctx.textAlign='center';ctx.fillText(`驻守 ×${garN}`,B.pBase.x,GY-176)}
+  for(const m of B.mets||[]){if(m.warn>0){ctx.fillStyle=`rgba(255,60,30,${.25+.25*Math.sin(performance.now()/60)})`;ctx.beginPath();ctx.ellipse(m.x,GY+6,48,10,0,0,7);ctx.fill()}
+    else{const g=ctx.createRadialGradient(m.x,m.y,2,m.x,m.y,22);g.addColorStop(0,'#fff0b0');g.addColorStop(.4,'#ff8a2e');g.addColorStop(1,'rgba(120,30,10,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(m.x,m.y,22,0,7);ctx.fill();
+      ctx.strokeStyle='rgba(255,140,40,.5)';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(m.x,m.y);ctx.lineTo(m.x-30,m.y-80);ctx.stroke()}}
   [...B.units].filter(u=>!u.garrison).sort((a,b)=>a.lane-b.lane).forEach(drawUnit);
   ctx.strokeStyle='#f2e3c0';ctx.lineWidth=1.5;
   for(const s of B.shots){
@@ -932,7 +958,7 @@ addEventListener('keyup',e=>{if(e.key==='ArrowLeft'||e.key==='a')keys.l=0;if(e.k
 addEventListener('blur',()=>{keys.l=keys.r=0});
 
 function growthChips(){const G=g();return `<div class="grow">${Object.entries(GROWTH).map(([k,v])=>`<span>${v.n} <b>Lv${G[k]}</b></span>`).join('')}</div>`}
-function nextLevel(){for(let i=1;i<=10;i++)if(!save.cleared[i])return i;return 11}
+function nextLevel(){for(let i=1;i<=MAXLV;i++)if(!save.cleared[i])return i;return MAXLV+1}
 let resetArm=false;
 function topbar(title,back){return `<div class="mtop">${back?`<button class="btn mback" type="button" id="mBack">← 返回</button>`:''}<h2 class="mtitle">${title}</h2><span class="spacer"></span><span class="coins">🪙 <b>${coins()}</b></span></div>`}
 function bindBack(){const b=$('mBack');if(b)b.onclick=showMap}
@@ -944,44 +970,48 @@ function showMap(){
     <div class="acct" id="acct" hidden></div>
     <div class="hero-title"><div class="logo">墨刃纪元</div><div class="sub">INK BLADE ERA</div></div>
     <div class="tiles">
-      <button class="tile t-lv" type="button" id="mLv"><span class="ti">⚔️</span><span class="tn">关卡</span><span class="ts">第一章 · ${nx>10?'已全部通关':'下一关 第'+nx+'关'}</span><span class="tb">★ ${stars}/30</span></button>
+      <button class="tile t-lv" type="button" id="mLv"><span class="ti">⚔️</span><span class="tn">关卡</span><span class="ts">${nx>MAXLV?'全部通关！':chapterOf(nx).t.split(' · ')[0]+' · 下一关 第'+nx+'关'}</span><span class="tb">★ ${stars}/${MAXLV*3}</span></button>
       <button class="tile t-md" type="button" id="mMd"><span class="ti">🌋</span><span class="tn">模式</span><span class="ts">岩浆竞技场 · 双人 / 单挑电脑</span><span class="tb">PVP</span></button>
       <button class="tile t-sh" type="button" id="mSh"><span class="ti">🛒</span><span class="tn">商店</span><span class="ts">皮肤 · 药水${pot?` · 背包 ${pot} 瓶`:''}</span><span class="tb">🪙 ${coins()}</span></button>
     </div>
-    <div class="row mfoot"><button class="btn primary" type="button" id="goBtn">${nx>10?'重玩第10关':'快速开始 · 第'+nx+'关'}</button>
+    <div class="row mfoot"><button class="btn primary" type="button" id="goBtn">${nx>MAXLV?'重玩第'+MAXLV+'关':'快速开始 · 第'+nx+'关'}</button>
       <button class="btn" type="button" id="skinBtn">画风：${skinOn()?'墨刃':'经典火柴人'}</button><button class="btn" type="button" id="bloodMenu">血效：${bloodOn()?'开':'关'}</button></div>
   </div>`;
   $('mLv').onclick=showLevels;$('mMd').onclick=showModes;$('mSh').onclick=()=>showShop('skins');
-  $('goBtn').onclick=()=>startLevel(Math.min(10,nx));
+  $('goBtn').onclick=()=>startLevel(Math.min(MAXLV,nx));
   $('skinBtn').onclick=()=>{save.skin=skinOn()?'classic':'ink';persist();showMap()};
   $('bloodMenu').onclick=()=>{save.blood=!bloodOn();persist();bloodLabel();showMap()};
   renderAcct();
 }
-function showLevels(){
-  enterMenu();const nx=nextLevel();let nodes='';
-  for(let i=1;i<=10;i++){const st=save.cleared[i]||0,boss=!!BOSSES[i],open=i<=nx;
+let curCh=0;
+function showLevels(ch){
+  enterMenu();const nx=nextLevel();if(typeof ch!=='number')ch=nx>10?1:curCh;curCh=ch;const C=CHAPTERS[ch],ch2open=nx>10;let nodes='';
+  for(let i=C.a;i<=C.b;i++){const st=save.cleared[i]||0,boss=!!BOSSES[i],open=i<=nx;
     nodes+=`<button class="node${boss?' boss':''}${i===nx?' next':''}" type="button" data-lv="${i}" ${open?'':'disabled'}>
       <span class="tag">${boss?'BOSS':'LEVEL'}</span><span class="lv">${i}</span><span class="st">${st?'★'.repeat(st)+'☆'.repeat(3-st):(open?'出战':'🔒')}</span></button>`}
-  overlay.innerHTML=`<div class="panel">${topbar('关卡 · 第一章',1)}
-    <p>派出士兵推进战线，摧毁敌方基地。第5关和第10关有首领：首领存活时敌方基地有护盾。首次通关可选一条永久成长路线。</p>
+  overlay.innerHTML=`<div class="panel">${topbar('关卡',1)}
+    <div class="tabs"><button class="tab${ch===0?' on':''}" type="button" data-c="0">第一章 · 草原</button><button class="tab${ch===1?' on':''}" type="button" data-c="1"${ch2open?'':' disabled'}>${ch2open?'':'🔒 '}第二章 · 烈焰之地</button></div>
+    <h2>${C.t}<small>${C.e} · Levels ${C.a}–${C.b}</small></h2>
+    <p>${C.d} 首次通关可选一条永久成长路线。</p>
     ${growthChips()}
     <div class="map">${nodes}</div>
     ${armedLine()}
-    <div class="row"><button class="btn primary" type="button" id="goBtn">${nx>10?'重玩第10关':'开始第'+nx+'关'}</button><span class="spacer"></span><button class="btn" type="button" id="resetBtn">重置关卡进度</button></div>
+    <div class="row"><button class="btn primary" type="button" id="goBtn">${nx>MAXLV?'重玩第'+MAXLV+'关':'开始第'+nx+'关'}</button><span class="spacer"></span><button class="btn" type="button" id="resetBtn">重置关卡进度</button></div>
     <div class="help">操作：1–0 出兵 · Z 进攻 · X 防守 · C 撤退 · 点士兵附身（Tab 切换 · H 回英雄）· ← → 移动 · Q 怒斩 · E 冲锋 · R 战吼 · F 剑雨 · P 暂停</div></div>`;
   bindBack();
   overlay.querySelectorAll('.node').forEach(b=>b.addEventListener('click',()=>startLevel(+b.dataset.lv)));
-  $('goBtn').onclick=()=>startLevel(Math.min(10,nx));bindArmed();
+  $('goBtn').onclick=()=>startLevel(Math.min(MAXLV,nx));bindArmed();
+  overlay.querySelectorAll('.tab[data-c]').forEach(b=>b.onclick=()=>showLevels(+b.dataset.c));
   $('resetBtn').addEventListener('click',e=>{if(!resetArm){resetArm=true;e.target.textContent='再点一次确认（金币和皮肤会保留）';return}
     const keep={blood:save.blood,rotate:save.rotate,skin:save.skin,tipCtrl:save.tipCtrl,coins:save.coins,owned:save.owned,inv:save.inv,heroSkin:save.heroSkin,armySkin:save.armySkin};
-    save=Object.assign({cleared:{},growth:{str:0,def:0,spd:0,cmd:0}},keep);persist();showLevels()});
+    save=Object.assign({cleared:{},growth:{str:0,def:0,spd:0,cmd:0}},keep);persist();showLevels(0)});
 }
 function armedLine(){const iv=inv(),arm=save.armed||[],have=SHOP.potions.filter(p=>iv[p.id]>0||arm.includes(p.id));
   if(!have.length)return '<div class="help">提示：去商店买药水，开战前可以在这里选择带上。</div>';
   return `<div class="armed"><span>开战带上药水：</span>${have.map(p=>`<button class="chipbtn${arm.includes(p.id)?' on':''}" type="button" data-p="${p.id}" style="--pc:${p.c}">${arm.includes(p.id)?'✓ ':''}${p.n} ×${(iv[p.id]||0)+(arm.includes(p.id)?1:0)}</button>`).join('')}</div>`}
 function bindArmed(){overlay.querySelectorAll('.chipbtn').forEach(b=>b.onclick=()=>{const id=b.dataset.p;let arm=save.armed||[];const iv=inv();
   if(arm.includes(id)){arm=arm.filter(x=>x!==id);iv[id]=(iv[id]||0)+1}else{if(!(iv[id]>0))return;arm.push(id);iv[id]--}
-  save.armed=arm;persist();showLevels()})}
+  save.armed=arm;persist();showLevels(curCh)})}
 function showModes(){
   enterMenu();
   overlay.innerHTML=`<div class="panel">${topbar('模式',1)}
@@ -1046,12 +1076,12 @@ function showResult(win){
   }else afterWin(n,starHtml);
 }
 function afterWin(n,starHtml){
-  overlay.innerHTML=`<div class="panel"><h2>${n===10?'第一章通关！':'第'+n+'关 完成'}<small>${n===10?'Chapter 1 complete':'Level cleared'}</small></h2>
+  overlay.innerHTML=`<div class="panel"><h2>${n===10?'第一章通关！':n===MAXLV?'第二章通关！你是墨刃之王！':'第'+n+'关 完成'}<small>${n===10?'🔥 第二章「烈焰之地」已解锁！':n===MAXLV?'All chapters complete':'Level cleared'}</small></h2>
     ${starHtml?`<div class="stars">${starHtml}</div>`:''}
     <div class="coinwin">🪙 +${B&&B.reward||0} 金币 <span>（共 ${coins()}）</span></div>
     ${growthChips()}
-    <div class="row">${n<10?`<button class="btn primary" type="button" id="nx">下一关 →</button>`:''}<button class="btn" type="button" id="back">返回关卡</button></div></div>`;
-  if(n<10)$('nx').onclick=()=>startLevel(n+1);$('back').onclick=showLevels;
+    <div class="row">${n<MAXLV?`<button class="btn primary" type="button" id="nx">${n===10?'进入第二章 →':'下一关 →'}</button>`:''}<button class="btn" type="button" id="back">返回关卡</button></div></div>`;
+  if(n<MAXLV)$('nx').onclick=()=>startLevel(n+1);$('back').onclick=showLevels;
 }
 
 // ---------- PvP: 岩浆竞技场 ----------
