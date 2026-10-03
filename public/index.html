@@ -403,7 +403,8 @@ async function fbLogin(){
   catch(e){if(/popup-blocked|operation-not-supported|web-storage-unsupported/.test(e.code||''))fb.U.signInWithRedirect(fb.auth,p);
     else if(!/popup-closed|cancelled-popup/.test(e.code||'')){fbErr=e.code||'unknown';renderAcct()}}
 }
-function isAdmin(){return !!(fbUser&&fbUser.email&&fbUser.email.toLowerCase()==='cronustjy@gmail.com')}
+const ADMINS=['cronustjy@gmail.com','ongthaddeus2@gmail.com','jieenxu6@gmail.com'];
+function isAdmin(){return !!(fbUser&&fbUser.email&&ADMINS.includes(fbUser.email.toLowerCase()))}
 function renderAcct(){document.body.classList.toggle('admin',isAdmin());
   const el=document.getElementById('acct');if(!el)return;
   if(fbState==='off'){el.hidden=true;return}el.hidden=false;
