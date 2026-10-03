@@ -1304,10 +1304,11 @@ function showMap(){
       <button class="tile t-sh" type="button" id="mSh"><span class="ti">🛒</span><span class="tn">商店</span><span class="ts">英雄 · 装备 · 皮肤 · 药水${pot?` · 背包 ${pot} 瓶`:''}</span><span class="tb">🪙 ${coins()}</span></button>
     </div>
     <div class="row mfoot"><button class="btn primary" type="button" id="goBtn">${nx>MAXLV?'重玩第'+MAXLV+'关':'快速开始 · 第'+nx+'关'}</button>
-      <button class="btn" type="button" id="skinBtn">画风：${skinOn()?'墨刃':'经典火柴人'}</button><button class="btn" type="button" id="langBtn">🌐 ${LANGS.find(l=>l[0]===lang())[1]}</button><button class="btn" type="button" id="tutBtn">📖 教学</button><button class="btn" type="button" id="credBtn">⭐ 制作团队</button><button class="btn admin-only adm" type="button" id="admMenu">🛠️ 管理员</button><button class="btn" type="button" id="bloodMenu">血效：${bloodOn()?'开':'关'}</button></div>
+      <button class="btn" type="button" id="skinBtn">画风：${skinOn()?'墨刃':'经典火柴人'}</button><button class="btn" type="button" id="langBtn">🌐 ${LANGS.find(l=>l[0]===lang())[1]}</button>${touchDev?`<button class="btn" type="button" id="rotMenu">📱 ${save.rotate===false?'横屏':'竖屏'}</button>`:''}<button class="btn" type="button" id="tutBtn">📖 教学</button><button class="btn" type="button" id="credBtn">⭐ 制作团队</button><button class="btn admin-only adm" type="button" id="admMenu">🛠️ 管理员</button><button class="btn" type="button" id="bloodMenu">血效：${bloodOn()?'开':'关'}</button></div>
     <div class="madeby">游戏制作：<b>Junyuan</b> · © 2026</div>
   </div>`;
-  $('credBtn').onclick=showCredits;$('admMenu').onclick=showAdmin;
+  $('credBtn').onclick=showCredits;
+  if($('rotMenu'))$('rotMenu').onclick=()=>{save.rotate=save.rotate===false;persist();applyRot();showMap()};$('admMenu').onclick=showAdmin;
   $('tutBtn').onclick=()=>{save.tutDone=0;startLevel(1)};
   if(!tutDone()&&!showMap.welcomed){showMap.welcomed=1;showWelcome()}
   $('mLv').onclick=showLevels;$('mMd').onclick=showModes;$('mSh').onclick=()=>showShop('heroes');
