@@ -502,8 +502,8 @@ function showCredits(){
   const m=document.createElement('div');m.className='welcome';
   m.innerHTML=`<div class="wcard"><div class="wlogo">墨刃纪元</div><div class="sub" style="font-family:var(--f-num);font-size:11px;letter-spacing:.3em;color:var(--muted)">INK BLADE ERA</div>
     <h3>制作团队</h3>
-    <div class="cred"><span>游戏制作</span><b>Cronus Tong</b></div>
-    <div class="cred"><span>创意与测试</span><b>Cronus 的朋友们</b></div>
+    <div class="cred"><span>游戏制作</span><b>Junyuan</b></div>
+    <div class="cred"><span>创意与测试</span><b>Junyuan 的朋友们</b></div>
     <p>谢谢你玩墨刃纪元！有建议或发现问题，欢迎告诉我们。</p>
     <div class="row" style="justify-content:center"><button class="btn primary" type="button" id="credOk">关闭</button></div></div>`;
   overlay.appendChild(m);$('credOk').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove()};
@@ -1168,7 +1168,7 @@ function showMap(){
     </div>
     <div class="row mfoot"><button class="btn primary" type="button" id="goBtn">${nx>MAXLV?'重玩第'+MAXLV+'关':'快速开始 · 第'+nx+'关'}</button>
       <button class="btn" type="button" id="skinBtn">画风：${skinOn()?'墨刃':'经典火柴人'}</button><button class="btn" type="button" id="langBtn">🌐 ${LANGS.find(l=>l[0]===lang())[1]}</button><button class="btn" type="button" id="tutBtn">📖 教学</button><button class="btn" type="button" id="credBtn">⭐ 制作团队</button><button class="btn" type="button" id="bloodMenu">血效：${bloodOn()?'开':'关'}</button></div>
-    <div class="madeby">游戏制作：<b>Cronus Tong</b> · © 2026</div>
+    <div class="madeby">游戏制作：<b>Junyuan</b> · © 2026</div>
   </div>`;
   $('credBtn').onclick=showCredits;
   $('tutBtn').onclick=()=>{save.tutDone=0;startLevel(1)};
