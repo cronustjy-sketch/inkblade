@@ -1946,7 +1946,7 @@ function showMap(){
     ${halloActive()?`<button class="hallo-bar" type="button" id="halloGo"><span class="hp">🎃</span><span class="ht"><b>万圣节活动</b><small>${halloDay()?'今天就是万圣节！糖果 ×2':'倒计时'} <span id="hcd">${halloCD()}</span></small></span><span class="hc">🍬 ${candy()}</span></button>`:''}
     <div class="tiles">
       <button class="tile t-lv" type="button" id="mLv"><span class="ti">⚔️</span><span class="tn">关卡</span><span class="ts">${nx>MAXLV?'全部通关！':chapterOf(nx).t.split(' · ')[0]+' · 下一关 第'+nx+'关'}</span><span class="tb">★ ${stars}/${MAXLV*3}</span></button>
-      <button class="tile t-md" type="button" id="mMd"><span class="ti">🌋</span><span class="tn">模式</span><span class="ts">🏁 墨刃赛车 · 岩浆竞技场</span><span class="tb">NEW</span></button>
+      <button class="tile t-md" type="button" id="mMd"><span class="ti">🌋</span><span class="tn">模式</span><span class="ts">⚔️ 在线对决 · 🏰 无尽守城</span></button>
       <button class="tile t-sh" type="button" id="mSh"><span class="ti">🛒</span><span class="tn">商店</span><span class="ts">英雄 · 装备 · 宠物 · 皮肤 · 药水${pot?` · 背包 ${pot} 瓶`:''}</span><span class="tb">🪙 ${coins()}</span></button>
     </div>
     <div class="mplay"><button class="btn primary mgo" type="button" id="goBtn">▶ ${nx>MAXLV?'重玩第'+MAXLV+'关':'继续 · 第'+nx+'关'}</button></div>
@@ -2014,11 +2014,6 @@ function bindArmed(){overlay.querySelectorAll('.chipbtn').forEach(b=>b.onclick=(
 function showModes(){
   enterMenu();
   overlay.innerHTML=`<div class="panel">${topbar('模式',1)}
-    <div class="arena"><div class="arena-t"><span class="arena-n">🌋 岩浆竞技场</span><span class="arena-s">把对手踢进岩浆！每回合随机一个技能（电脑也会用），抢神秘宝箱换技能。地板会塌，机关会落石。先赢 3 回合。</span></div>
-      <div class="row"><button class="btn primary" type="button" id="pvp2">双人同屏</button><button class="btn" type="button" id="pvp1">单挑电脑</button></div></div>
-    <div class="arena race"><div class="arena-t"><span class="arena-n">🏁 墨刃赛车 · Ink GP</span><span class="arena-s">新模式！一键油门的赛车：五盏红灯熄灭就出发，弯道太快会打滑，轮胎会磨损要进站，紧跟前车可开 DRS。跑完 ${LAPS} 圈先冲线获胜。</span></div>
-      <div class="row"><button class="btn primary" type="button" id="race1">单挑电脑</button><button class="btn" type="button" id="race2">双人同屏</button></div>
-      ${save.raceBest?`<div class="help" style="color:#c08cff">🟣 你的最快圈速：${fmtT(save.raceBest)}</div>`:''}</div>
     <div class="arena duelc"><div class="arena-t"><span class="arena-n">⚔️ 在线对决 · Online Duel</span><span class="arena-s">新模式！用 Google 名字加好友，然后在线军队对决：双方同样的能量和兵种，3 分钟内先打爆对方城堡的人赢。还能发表情嘲讽对方 😂</span></div>
       <div class="row"><button class="btn primary" type="button" id="duel1">👥 好友 · 对决</button></div>
       ${save.duelW||save.duelL?`<div class="help" style="color:#9fe08f">战绩：${save.duelW||0} 胜 · ${save.duelL||0} 负</div>`:''}</div>
@@ -2026,7 +2021,7 @@ function showModes(){
       <div class="row"><button class="btn primary" type="button" id="end1">开始守城</button></div>
       ${save.endBest?`<div class="help" style="color:#ffd36b">🏆 你的最高纪录：${save.endBest} 波</div>`:''}</div>
   </div>`;
-  bindBack();$('pvp2').onclick=()=>arenaHelp(false);$('pvp1').onclick=()=>arenaHelp(true);$('race1').onclick=()=>raceHelp(true);$('end1').onclick=()=>startLevel(END_LV);$('duel1').onclick=showFriends;$('race2').onclick=()=>raceHelp(false);
+  bindBack();$('end1').onclick=()=>startLevel(END_LV);$('duel1').onclick=showFriends;
 }
 function sprPreview(key,hgt){const d=window.INK_SPR&&window.INK_SPR[key];if(!d)return '';
   return `<span class="pv" style="height:${hgt}px;width:${Math.round(d.w*hgt/d.h)}px">${['l','r','up'].filter(k=>d[k]).map(k=>`<img src="${d[k]}" alt="">`).join('')}</span>`}
@@ -3805,7 +3800,7 @@ function maybeDaily(){
 
 // ---------- 🏆 排行榜 ----------
 const LB={lv:{n:'🏆 关卡',f:'lbScore',d:'desc',show:p=>`第 ${p.lbLv||0} 关 · ★${p.lbStars||0}`},rank:{n:'🏅 排位',f:'lbRP',d:'desc',show:p=>rankLabel(p.lbSeason===seasonId()?p.lbRP:Math.floor((p.lbRP||0)/2))},end:{n:'🏰 无尽守城',f:'lbEnd',d:'desc',show:p=>`${p.lbEnd||0} 波`},
-  duel:{n:'⚔️ 对决胜场',f:'lbDuel',d:'desc',show:p=>`${p.lbDuel||0} 胜`},race:{n:'🏁 赛车圈速',f:'lbRace',d:'asc',show:p=>fmtT(p.lbRace)},candy:{n:'🍬 糖果',f:'lbCandy',d:'desc',show:p=>`🍬 ${p.lbCandy||0}`},true:{n:'∞∞ 真·不可能',f:'lbTrue',d:'desc',show:p=>`${Math.floor((p.lbTrue||0)/60)}:${String((p.lbTrue||0)%60).padStart(2,'0')}`}};
+  duel:{n:'⚔️ 对决胜场',f:'lbDuel',d:'desc',show:p=>`${p.lbDuel||0} 胜`},candy:{n:'🍬 糖果',f:'lbCandy',d:'desc',show:p=>`🍬 ${p.lbCandy||0}`},true:{n:'∞∞ 真·不可能',f:'lbTrue',d:'desc',show:p=>`${Math.floor((p.lbTrue||0)/60)}:${String((p.lbTrue||0)%60).padStart(2,'0')}`}};
 function myStats(){let lv=0,st=0;for(const k in save.cleared){const n=+k;if(n>=1&&n<=MAXLV&&save.cleared[k]){lv=Math.max(lv,n);st+=save.cleared[k]}}
   const o={lbLv:lv,lbStars:st,lbScore:lv*1000+st,lbEnd:save.endBest||0,lbDuel:save.duelW||0,lbCandy:save.candy||0,lbTrue:save.trueBest||0,lbRP:Math.round(save.rp||0),lbSeason:seasonId(),adm:isAdmin()};if(save.raceBest)o.lbRace=save.raceBest;return o}
 let lbLast='';function pushStats(){if(!fb||!fbUser)return;const st=myStats(),k=JSON.stringify(st);if(k===lbLast)return;lbLast=k;
