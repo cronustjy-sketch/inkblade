@@ -972,7 +972,7 @@ function update(dt){
   if(B.chs&&B.chs.sugar>0)for(const u of B.units)if(u._px!==undefined)u.x=Math.max(B.pBase.x,Math.min(B.eBase.x,u._px+(u.x-u._px)*2));
   // bases shoot
   for(const [b,team] of [[B.pBase,0],[B.eBase,1]]){
-    if(B.C.football||B.C.solo)continue;b.cd-=dt;if(b.cd>0)continue;
+    if(B.C.football||B.C.solo)continue;if(B.ownFrz&&B.ownFrz.t>0&&B.ownFrz.team===team)continue;b.cd-=dt;if(b.cd>0)continue;
     const tgt=B.units.filter(u=>u.team!==team&&!u.garrison&&Math.abs(u.x-b.x)<(team===0?190:170)).sort((a,c)=>Math.abs(a.x-b.x)-Math.abs(c.x-b.x))[0];
     const gar=team===0?B.units.filter(u=>u.garrison).length:0;
     if(tgt){B.shots.push({x:b.x,y:GY-110,tgt,dmg:team===0?7*B.M.atk*(1+.25*gar)*(B.baseDmg||1):6*B.C.mult,team});b.cd=1.4/(1+.6*gar);}
@@ -1012,7 +1012,7 @@ function update(dt){
   for(const t of B.texts){t.t-=dt;t.y-=30*dt}
   B.texts=B.texts.filter(t=>t.t>0);
   if(B.slash){B.slash.t-=dt;if(B.slash.t<=0)B.slash=0}
-  if(B.C.sealed){B.admE=false;B.admGod=false}autoTick(dt);updateUlt(dt);updatePet(dt);updateEvents(dt);updateSkillsEx(dt);if(B.chs){updateCh(dt);updateDragonCh(dt)}updateBossAbil(dt);if(B.C.imp)updateImp(dt);if(B.C.endless)updateEndless(dt);if(B.ownSh)B.ownSh.t-=dt;if(B.ownFrz)B.ownFrz.t-=dt;if(B.ownBolts){for(const q of B.ownBolts)q.t-=dt;B.ownBolts=B.ownBolts.filter(q=>q.t>0)}if(B.C.football)footballTick(dt);if(B.C.solo)soloTick(dt);if(B.C.trueImp)trueTick(dt);if(B.C.duel)duelHostTick(dt);
+  if(B.C.sealed){B.admE=false;B.admGod=false}autoTick(dt);updateUlt(dt);updatePet(dt);updateEvents(dt);updateSkillsEx(dt);if(B.chs){updateCh(dt);updateDragonCh(dt)}updateBossAbil(dt);if(B.C.imp)updateImp(dt);if(B.C.endless)updateEndless(dt);if(B.ownSh)B.ownSh.t-=dt;if(B.ownEn&&B.ownEn.t>0){B.ownEn.t-=dt;if(B.ownEn.team===0)B.energy=Math.min(MAXE,B.energy+20*dt);else B.e2=Math.min(MAXE,(B.e2||0)+20*dt)}if(B.ownFrz)B.ownFrz.t-=dt;if(B.ownBolts){for(const q of B.ownBolts)q.t-=dt;B.ownBolts=B.ownBolts.filter(q=>q.t>0)}if(B.C.football)footballTick(dt);if(B.C.solo)soloTick(dt);if(B.C.trueImp)trueTick(dt);if(B.C.duel)duelHostTick(dt);
   for(const r of B.revQ){r.t-=dt;if(r.t<=0){const z=makeUnit(1,r.type);z.x=r.x;z.lane=r.lane;z.hp=z.max*.5;z.revived=1;B.units.push(z);
       B.texts.push({big:1,x:r.x,y:GY+r.lane-70,t:1,s:'复活！',c:'#9fe08f'});for(let i=0;i<10;i++)B.fx.push({x:r.x,y:GY+r.lane,vx:(Math.random()-.5)*90,vy:-Math.random()*120,t:.6,c:'#5a7a4a'})}}
   B.revQ=B.revQ.filter(r=>r.t>0);
@@ -3247,10 +3247,10 @@ function duelHostTick(dt){
   if(B.t>=DUEL_TIME&&!B.over){const a=B.pBase.hp/B.pBase.max,b=B.eBase.hp/B.eBase.max;const r=Math.abs(a-b)<.01?0:a>b?1:-1;
     B.over=true;fb.R.set(fb.R.ref(fb.rdb,'duels/'+DU.id+'/over'),r===0?'draw':r>0?'host':'guest').catch(()=>{});setTimeout(()=>duelOver(r,'时间到！比较城堡血量'),600);return}
   if(B.sendT<=0){B.sendT=.1;
-    const us=B.units.map(u=>[u.id,UNIT_KEYS.indexOf(u.type),u.team,Math.round(u.x),Math.round(u.lane),Math.max(1,Math.round(u.hp/u.max*100)),(u.swing>0?1:0)|(u.rank===2?4:0)|(u.flash>0?8:0)|(u.garrison?2:0)|(u.scale>1?16:0)].join(',')).join(';');
+    const us=B.units.map(u=>[u.id,UNIT_KEYS.indexOf(u.type),u.team,Math.round(u.x),Math.round(u.lane),Math.max(1,Math.round(u.hp/u.max*100)),(u.swing>0?1:0)|(u.rank===2?4:0)|(u.flash>0?8:0)|(u.garrison?2:0)|(u.scale>1?16:0)|(u.stun>0?32:0)].join(',')).join(';');
     const mt=(B.mets||[]).map(m=>[Math.round(m.x),Math.round(m.y),m.warn>0?1:0].join(',')).join(';');
     const sh=B.shots.map(s=>[Math.round(s.x),Math.round(s.y),s.kind==='orb'?1:s.kind==='rock'?2:0,Math.round((s.a||0)*10)].join(',')).join(';');
-    fb.R.set(fb.R.ref(fb.rdb,'duels/'+DU.id+'/s'),{u:us,sh,mt,e2:Math.floor(B.e2),pb:[Math.ceil(B.pBase.hp),B.pBase.max],eb:[Math.ceil(B.eBase.hp),B.eBase.max],tl:Math.max(0,Math.ceil(DUEL_TIME-B.t)),ts:Date.now()}).catch(()=>{});
+    fb.R.set(fb.R.ref(fb.rdb,'duels/'+DU.id+'/s'),{u:us,sh,mt,e2:Math.floor(B.e2),pb:[Math.ceil(B.pBase.hp),B.pBase.max],eb:[Math.ceil(B.eBase.hp),B.eBase.max],tl:Math.max(0,Math.ceil(DUEL_TIME-B.t)),ts:Date.now(),ow:[B.ownSh&&B.ownSh.t>0?B.ownSh.team+1:0,B.ownSh?Math.max(0,B.ownSh.t):0,B.ownFrz&&B.ownFrz.t>0?B.ownFrz.team+1:0,(B.ownBolts||[]).map(q=>Math.round(q.x)).join('|'),B.ownMsg?B.ownMsg.id:0,B.ownMsg?B.ownMsg.s:'']}).catch(()=>{});
   }
 }
 // ---- guest: mirrors host snapshots ----
@@ -3270,9 +3270,11 @@ function guestApply(s){
     const type=UNIT_KEYS[a[1]]||'soldier',U=UNITS[type]||{};
     if(!u){u=B.G[id]={id,type,team:a[2],x:a[3],lane:a[4],hp:100,max:100,swing:0,flash:0,phase:Math.random()*6,atkT:0,face:a[2]?-1:1,big:!!U.big,pop:U.pop||1,ranged:U.ranged||false,tx:a[3]};B.units.push(u)}
     u.tx=a[3];u.lane=a[4];if(u.team!==a[2]){u.team=a[2];u.face=a[2]?-1:1}if(type==='dragon'){u.fly=1;u.alt=Math.max(0,-a[4]);u.dk=u.team?'dragon':'azure';u.baseAlt=u.alt}const hp=a[5];if(hp<u.hp){if(bloodOn()&&Math.random()<.5)for(let i=0;i<3;i++)B.fx.push({blood:1,x:u.x,y:GY+u.lane-22,vx:(Math.random()-.5)*120,vy:-60-Math.random()*120,t:.8,r:2+Math.random()*2,gy:GY+u.lane+2})}
-    u.hp=hp;if(a[6]&1&&u.swing<=0)u.swing=.22;u.rank=a[6]&4?2:0;if(a[6]&8)u.flash=.08;u.garrison=!!(a[6]&2);u.scale=a[6]&16?1.5:undefined}
+    u.hp=hp;if(a[6]&1&&u.swing<=0)u.swing=.22;u.rank=a[6]&4?2:0;if(a[6]&8)u.flash=.08;u.garrison=!!(a[6]&2);u.scale=a[6]&16?1.5:undefined;u.stun=a[6]&32?1:0}
   for(const u of B.units)if(!seen.has(u.id)){u.hp=0;delete B.G[u.id];u.dead=1;B.corpses.push({u,t:2.2,dir:u.team?-1:1});sfx(u.big?'bigdie':'die');if(bloodOn())splat(u.x,GY+u.lane+2,10+Math.random()*8)}
   B.units=B.units.filter(u=>u.hp>0);
+  if(s.ow){const o=s.ow;B.ownSh=o[0]?{team:o[0]-1,t:o[1]}:null;B.ownFrz=o[2]?{team:o[2]-1,t:1}:null;B.ownBolts=(o[3]||'').split('|').filter(Boolean).map(x=>({x:+x,t:.3}));
+    if(o[4]&&o[4]!==B.ownSeen){if(B.ownSeen!==undefined){B.banner={a:'👑 '+tr(o[5]),b:'',t:1.8};sfx('ult')}B.ownSeen=o[4]}}
   B.mets=(s.mt||'').split(';').filter(Boolean).map(r=>{const a=r.split(',').map(Number);return {x:a[0],y:a[1],warn:a[2]?.5:0}});
   B.shots=(s.sh||'').split(';').filter(Boolean).map(r=>{const a=r.split(',').map(Number);return {x:a[0],y:a[1],kind:a[2]===1?'orb':a[2]===2?'rock':undefined,a:a[3]/10,tgt:{hp:1}}});
 }
@@ -3787,14 +3789,14 @@ async function ownerAct(a,m){
 }
 const OWN_DUEL=['giant','mets','dragon','freeze','shieldB','energy','bolt','repair','king','convert'];
 const OWN_DUEL_N={giant:'🌈 全军巨大化',mets:'☄️ 陨石砸对手',dragon:'🐉 召唤巨龙',freeze:'❄️ 冻结对手 5 秒',shieldB:'🛡️ 城堡无敌 12 秒',energy:'⚡ 能量爆满',bolt:'🌩️ 天雷劈前线',repair:'🏰 修复城堡',king:'👑 召唤墨王',convert:'🔄 敌军叛变'};
-function ownerPower(a,team){const foe=1-team,myBase=team===0?B.pBase:B.eBase,fx=(x,y,c)=>{for(let i=0;i<10;i++)B.fx.push({x,y,vx:(Math.random()-.5)*160,vy:-Math.random()*160,t:.6,c})};
-  if(a==='dragon'){for(let i=0;i<2;i++){const d=makeDragon(team);if(B.C.duel&&team===1){d.dk='dragon'}d.hp=d.max=d.max*1.5;B.units.push(d)}sfx('roar')}
+function ownerPower(a,team){B.ownMsg={s:OWN_DUEL_N[a]||a,team,id:((B.ownMsg&&B.ownMsg.id)||0)+1};B.banner={a:'👑 '+tr(B.ownMsg.s),b:'',t:1.8};const foe=1-team,myBase=team===0?B.pBase:B.eBase,fx=(x,y,c)=>{for(let i=0;i<10;i++)B.fx.push({x,y,vx:(Math.random()-.5)*160,vy:-Math.random()*160,t:.6,c})};
+  if(a==='dragon'){for(let i=0;i<2;i++){const d=makeDragon(team);d.x=myBase.x+(team===0?60:-60)+i*(team===0?50:-50);d.hp=d.max=d.max*1.5;d.own=1;B.units.push(d)}sfx('roar')}
   if(a==='freeze'){B.units.forEach(u=>{if(u.team===foe&&!u.fly){u.stun=5;fx(u.x,GY+u.lane-20,'#bfe8ff')}});B.ownFrz={team:foe,t:5}}
   if(a==='shieldB'){B.ownSh={team,t:12}}
-  if(a==='energy'){if(team===0)B.energy=MAXE;else B.e2=MAXE}
+  if(a==='energy'){if(team===0)B.energy=MAXE;else B.e2=MAXE;B.ownEn={team,t:10}}
   if(a==='bolt'){const dir=team===0?1:-1,fr=B.units.filter(u=>u.team===foe&&!u.fly&&u.hp>0).sort((p,q)=>(p.x-q.x)*dir).slice(0,6);B.ownBolts=B.ownBolts||[];
-    fr.forEach((u,i)=>{B.ownBolts.push({x:u.x,t:.45+i*.08});u.hp=0;u.lastBy='hero'});B.shakeT=.3;sfx('boom')}
-  if(a==='repair'){myBase.hp=myBase.max;fx(myBase.x,GY-60,'#8fe38f');B.fx.push({ring:1,gold:1,x:myBase.x,y:GY+6,t:.5})}
+    fr.forEach((u,i)=>{B.ownBolts.push({x:u.x,t:.45+i*.08});u.hp=0;u.lastBy='hero'});const fb2=team===0?B.eBase:B.pBase;for(let i=fr.length;i<6;i++)B.ownBolts.push({x:fb2.x+(Math.random()-.5)*40,t:.45+i*.08});if(fr.length<6)fb2.hp-=fb2.max*.04*(6-fr.length);B.shakeT=.3;sfx('boom')}
+  if(a==='repair'){myBase.max=Math.round(myBase.max*1.2);myBase.hp=myBase.max;fx(myBase.x,GY-60,'#8fe38f');B.fx.push({ring:1,gold:1,x:myBase.x,y:GY+6,t:.5})}
   if(a==='king'){const k=makeUnit(team,'giant');k.scale=1.5;k.max*=6;k.hp=k.max;k.atk*=3;k.rank=2;k.x=myBase.x+(team===0?40:-40);B.units.push(k);B.banner={a:'👑 墨王降临！',b:'',t:1.6}}
   if(a==='convert'){const dir=team===0?1:-1;B.units.filter(u=>u.team===foe&&!u.fly&&!u.hero&&!u.boss&&u.hp>0).sort((p,q)=>(p.x-q.x)*dir).slice(0,5).forEach(u=>{u.team=team;u.face=team===0?1:-1;fx(u.x,GY+u.lane-20,'#ffd36b')});}
   if(a==='giant')B.units.forEach(u=>{if(u.team===team&&!u.hero&&!u.scale&&!u.fly){u.scale=1.5;u.max*=2;u.hp=u.max;u.atk*=1.5;B.fx.push({ring:1,gold:1,x:u.x,y:GY+u.lane,t:.4})}});
@@ -3852,7 +3854,7 @@ function drawDragonU(u){
     for(let i=0;i<8;i++){const q=((t*2.2+i/8)%1),px=mx+(gx-face*25-mx)*q+Math.sin(i*7+t*20)*18*q,py=my+(GY-my)*q;ctx.fillStyle=col[0];ctx.beginPath();ctx.arc(px,py,3+q*6,0,7);ctx.fill()}}
   ctx.save();if(u.flash>0)ctx.globalAlpha=.75;if(RIG.ok.drag)drawDragonRig(u,u.x,y,face,sc,t);else drawPet(ctx,u.dk,u.x,y,face,t+u.phase,sc);ctx.restore();
   if(!u.dead){const by=y-(RIG.ok.drag?64:46)*sc/2.8;bar(u.x,by,u.boss?110:u.baby?36:60,u.hp/u.max,u.team===0?'#6cc070':'#de4b3f');ctx.fillStyle=u.team===0?'#cfe3ff':'#ffc9c2';ctx.font=(u.boss?'15px "ZCOOL QingKe HuangYou",':'12px "Noto Sans SC",')+'sans-serif';ctx.textAlign='center';
-    ctx.fillText(u.boss?u.name:u.team===0?(u.baby?'小苍龙':'苍龙'):u.dk==='frost'?'冰霜巨龙':u.dk==='bone'?'骸骨巨龙':'烈焰巨龙',u.x,by-6)}
+    ctx.fillText(u.boss?u.name:(u.team===0||B.C.duel)?(u.baby?'小苍龙':'苍龙'):u.dk==='frost'?'冰霜巨龙':u.dk==='bone'?'骸骨巨龙':'烈焰巨龙',u.x,by-6)}
 }
 function updateDragonCh(dt){const S=B.chs;if(!S)return;
   if(hasMod('eggs')){if(!S.eggO){S.egg=(S.egg??10)-dt;if(S.egg<=0){S.egg=13+Math.random()*4;S.eggO={x:300+Math.random()*360,t:0};B.texts.push({big:1,x:S.eggO.x,y:GY-110,t:1.2,s:'🥚 龙蛋！',c:'#ffd36b'})}}
