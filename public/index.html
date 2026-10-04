@@ -201,7 +201,7 @@ body.warp::after{content:'';position:fixed;inset:0;background:#fff;z-index:99;an
 .gsum{margin:12px 0;padding:10px 12px;border:1px solid #3a4a2a;border-radius:10px;background:rgba(120,180,80,.07);display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}.gsum b{width:100%;color:#b9f0b0}
 .arena.duelc{border-color:#6a2a2a;background:linear-gradient(135deg,#341414,var(--panel) 70%)}.arena.duelc .arena-n{color:#ffb0a0}
 .emo{display:none;gap:6px;flex-wrap:wrap;align-items:center}.emo button{font-size:22px;min-width:46px;height:46px;border-radius:10px;border:1px solid var(--line,#333);background:var(--panel,#1a1d22);color:#fff;cursor:pointer}
-#mvJ{display:none}body.solo #mvJ{display:block}body.solo #ubar,body.solo .orders,body.solo .energy{display:none}body.duel .emo{display:flex}body.duel #skills,body.duel .orders,body.duel .pad{display:none}
+#mvJ{display:none}body.solo #mvJ{display:block}body.solo #ubar,body.solo .orders,body.solo .energy{display:none}body.duel:not(.isowner) #admBattle{display:none!important}body.duel .emo{display:flex}body.duel #skills,body.duel .orders,body.duel .pad{display:none}
 .fr .frsearch{display:flex;gap:8px;margin:10px 0}.fr .frsearch input{flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1px solid #3a3f48;background:#0d1014;color:#ecebe4;font:inherit}
 .frrow{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #2a2f38;border-radius:10px;margin:6px 0;background:rgba(255,255,255,.02)}
 .frrow .av{width:34px;height:34px;border-radius:50%;flex:none;object-fit:cover}.frrow .avd{display:grid;place-items:center;background:#22262e}
@@ -482,7 +482,7 @@ async function initFB(){
     const app=A.initializeApp(FB_CFG),auth=U.getAuth(app),db=F.getFirestore(app);
     fb={auth,db,U,F,app};fbState='ready';renderAcct();
     U.getRedirectResult(auth).catch(e=>{fbErr=e.code||'';renderAcct()});
-    U.onAuthStateChanged(auth,async u=>{fbUser=u;renderAcct();if(u){await pullCloud();profileUp();claimGifts();checkAnnounce()}});
+    U.onAuthStateChanged(auth,async u=>{fbUser=u;renderAcct();ownerSync();if(u){await pullCloud();profileUp();claimGifts();checkAnnounce()}});
   }catch(e){fbState='off';renderAcct()}
 }
 async function pullCloud(){
@@ -1831,7 +1831,7 @@ async function showAdminLog(){
 }
 const ADM_TAB={k:''};
 function showAdmin(){
-  if(!isAdmin())return;
+  if(!isAdmin())return;if(B&&B.C&&B.C.duel&&(mode==='battle'||mode==='duel')&&!B.over&&!isOwner())return;
   if(mode==='battle'&&B&&B.C.sealed&&!B.over){B.banner={a:'🔒 封印章节',b:'这里不能用管理员能力，要靠自己打！',t:2.2};return}
   if(mode==='battle'&&B&&B.C.trueImp&&!B.over){B.banner={a:'😈 管理员能力已被封印',b:'真·不可能里不能用任何管理员能力',t:2.2};return}
   const duel=!!(B&&B.C&&B.C.duel&&(mode==='battle'||mode==='duel')&&!B.over);const inBattle=(mode==='battle'&&B&&!B.over)||duel;if(inBattle&&!duel)paused=true;
@@ -3230,7 +3230,7 @@ function startDuelHost(){document.body.classList.remove('solo');
   B.banner={a:'⚔️ 对决开始！',b:'你是蓝方（左边）· 先打爆 '+DU.opp+' 的城堡 · 3 分钟',t:4};
   document.body.classList.add('duel');document.querySelector('.title small').textContent='Online Duel';
   const base='duels/'+DU.id+'/';R.onDisconnect(R.ref(fb.rdb,base+'leftH')).set(true);
-  DU.unsub.push(R.onChildAdded(R.ref(fb.rdb,base+'c'),snap=>{const c=snap.val();R.remove(snap.ref).catch(()=>{});if(!B||!B.C.duel||B.over)return;if(c&&c.k==='d')guestSpawn(c.t);else if(c&&c.k==='own'&&OWN_DUEL.includes(c.a))ownerPower(c.a,1)}));
+  DU.unsub.push(R.onChildAdded(R.ref(fb.rdb,base+'c'),snap=>{const c=snap.val();R.remove(snap.ref).catch(()=>{});if(!B||!B.C.duel||B.over)return;if(c&&c.k==='d')guestSpawn(c.t);else if(c&&c.k==='own'&&OWN_DUEL.includes(c.a))ownerUid().then(ou=>{if(ou&&DU&&DU.oppUid===ou&&B&&B.C.duel&&!B.over)ownerPower(c.a,1)})}));
   DU.unsub.push(R.onValue(R.ref(fb.rdb,base+'leftG'),snap=>{if(snap.val()&&DU&&!DU.done&&B&&!B.over){B.over=true;R.set(R.ref(fb.rdb,base+'over'),'host').catch(()=>{});duelOver(1,'对方离开了对决')}}));
   DU.unsub.push(R.onValue(R.ref(fb.rdb,base+'em'),snap=>{const e=snap.val();if(e&&e.r==='guest')showEmote(e.e,1)}));
   DU.unsub.push(R.onValue(R.ref(fb.rdb,base+'hb'),snap=>{DU.hb=snap.val()||Date.now()}));
@@ -3765,6 +3765,8 @@ function truePortal(){
 
 // ---------- 👑 主人专属（只有 OWNER） ----------
 function isOwner(){return !!(fbUser&&fbUser.email===OWNER)}
+let OWNER_UID=null;async function ownerUid(){if(OWNER_UID)return OWNER_UID;try{const d=await fb.F.getDoc(fb.F.doc(fb.db,'config','owner'));OWNER_UID=d.exists()?d.data().uid:null}catch(e){}return OWNER_UID}
+function ownerSync(){document.body.classList.toggle('isowner',isOwner());if(isOwner()&&fb&&fbUser)fb.F.setDoc(fb.F.doc(fb.db,'config','owner'),{uid:fbUser.uid,t:Date.now()}).catch(()=>{})}
 async function ownerAct(a,m){
   const F=fb.F,msg=t=>{const e=$('admMsg');if(e)e.textContent=t};
   try{
