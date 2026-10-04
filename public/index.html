@@ -1917,7 +1917,7 @@ function nextLevel(){for(let i=1;i<=MAXLV;i++)if(!save.cleared[i])return i;retur
 let resetArm=false;
 function topbar(title,back){return `<div class="mtop">${back?`<button class="btn mback" type="button" id="mBack">← 返回</button>`:''}<h2 class="mtitle">${title}</h2><span class="spacer"></span><span class="coins">🪙 <b>${coins()}</b></span></div>`}
 function bindBack(){const b=$('mBack');if(b)b.onclick=showMap}
-function enterMenu(){frClear();if(needU&&fbUser)setTimeout(()=>{if(needU&&(mode==='map'||mode==='result'))showUname()},120);if(DU)duelCleanup();document.body.classList.remove('duel');if(pendInv&&Date.now()-pendInv.t<60000)setTimeout(showInvite,60);document.body.classList.add('inmenu');{const c=$('coach');if(c)c.hidden=true}tutClearHL();mode='map';B=null;P=null;RC=null;overlay.hidden=false;resetArm=false;$('campCtrl').hidden=true;$('pvpCtrl').hidden=true;$('raceCtrl').hidden=true;$('lvChip').innerHTML='主菜单';refreshButtons();overlay.scrollTop=0}
+function enterMenu(){document.body.classList.remove('solo');frClear();if(needU&&fbUser)setTimeout(()=>{if(needU&&(mode==='map'||mode==='result'))showUname()},120);if(DU)duelCleanup();document.body.classList.remove('duel');if(pendInv&&Date.now()-pendInv.t<60000)setTimeout(showInvite,60);document.body.classList.add('inmenu');{const c=$('coach');if(c)c.hidden=true}tutClearHL();mode='map';B=null;P=null;RC=null;overlay.hidden=false;resetArm=false;$('campCtrl').hidden=true;$('pvpCtrl').hidden=true;$('raceCtrl').hidden=true;$('lvChip').innerHTML='主菜单';refreshButtons();overlay.scrollTop=0}
 const MENU_SET={open:false};
 function showMap(){
   enterMenu();
@@ -3224,7 +3224,7 @@ function duelCleanup(){if(!DU)return;(DU.unsub||[]).forEach(f=>{try{f()}catch(e)
   if(fb&&fb.R&&DU.id&&!DU.done){const R=fb.R;try{R.set(R.ref(fb.rdb,'duels/'+DU.id+(DU.role==='host'?'/leftH':'/leftG')),true)}catch(e){}}
   DU=null;document.body.classList.remove('duel');}
 // ---- host: runs the real simulation ----
-function startDuelHost(){
+function startDuelHost(){document.body.classList.remove('solo');
   const R=fb.R,arm=save.armed;save.armed=[];startLevel(DUEL_LV);save.armed=arm;
   const M=B.M;Object.assign(M,{atk:1,hp:1,spd:1,cap:40,regen:12,skillDmg:1});B.pBase.hp=B.pBase.max=3000;B.pet=null;B.energy=40;B.e2=40;B.sendT=0;
   B.banner={a:'⚔️ 对决开始！',b:'你是蓝方（左边）· 先打爆 '+DU.opp+' 的城堡 · 3 分钟',t:4};
@@ -3254,7 +3254,7 @@ function duelHostTick(dt){
   }
 }
 // ---- guest: mirrors host snapshots ----
-function startDuelGuest(){
+function startDuelGuest(){document.body.classList.remove('solo');
   document.body.classList.remove('inmenu');document.body.classList.add('duel');
   B={n:99,C:{duel:1,mult:1,types:[]},M:{cap:40,cds:{slash:1,dash:1,rally:1,rain:1},atk:1,hp:1,spd:1,regen:12},t:0,energy:40,units:[],shots:[],fx:[],texts:[],decals:[],corpses:[],order:'attack',ink:0,ult:null,
     cd:{slash:0,dash:0,rally:0,rain:0,ex:0},hero:null,noHero:1,heroDead:1e9,rally:0,rain:null,banner:{a:'⚔️ 对决开始！',b:'你是红方（右边）· 先打爆 '+DU.opp+' 的城堡 · 3 分钟',t:4},
