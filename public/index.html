@@ -1772,7 +1772,7 @@ function refreshButtons(){
   if(B&&B.C.solo){$('armyChip').innerHTML='⚔️ 孤身一人';return}
   $('armyChip').innerHTML=`军队 <b>${B&&B.C.imp?impArmy():Math.round(army())}</b>/${B&&B.C.imp?'∞':B?B.M.cap:mods().cap} · 能量 <b>${B?Math.floor(B.energy):0}</b>`;
 }
-$('ubar').innerHTML=UNIT_KEYS.map((k,i)=>{const U=UNITS[k];return `<button class="unit" id="b-${k}" type="button" title="${U.n} ${U.e} · ${U.d} · 能量 ${U.cost}${U.pop>1?` · 占 ${U.pop} 个名额`:''}"><span class="n">${U.n}</span><span class="s"></span><span class="c">${U.cost}</span><span class="k">${k==='dragon'?'V':(i+1)%10}</span>${U.pop>1?`<span class="pop">占${U.pop}</span>`:''}</button>`}).join('');
+$('ubar').innerHTML=UNIT_KEYS.map((k,i)=>{const U=UNITS[k];return `<button class="unit" id="b-${k}" type="button" title="${U.n} ${U.e} · ${U.d} · 能量 ${U.cost}${U.pop>1?` · 占 ${U.pop} 个名额`:''}"><span class="n">${U.n}</span><span class="s"></span><span class="c">${U.cost}</span><span class="k">${k==='dragon'?'V':(i+1)%10}</span>${U.pop>1?`<span class="pop">×${U.pop}</span>`:''}</button>`}).join('');
 UNIT_KEYS.forEach(k=>$('b-'+k).addEventListener('click',()=>spawn(k)));
 $('mvJ').addEventListener('pointerdown',e=>{e.preventDefault();soloJump()});
 document.querySelectorAll('.ord').forEach(b=>b.addEventListener('click',()=>setOrder(b.dataset.o)));
@@ -3278,7 +3278,7 @@ function guestApply(s){
 }
 function duelGuestTick(dt){
   if(!B||!B.C.duel)return;B.t+=dt;
-  for(const u of B.units){const d=u.tx-u.x;u.x+=d*Math.min(1,dt*10);if(Math.abs(d)>.3)u.phase+=dt*Math.min(60,Math.abs(d)*8)*.18;u.swing=Math.max(0,u.swing-dt);u.flash=Math.max(0,u.flash-dt)}
+  for(const u of B.units){u._px=u.x;const d=u.tx-u.x;u.x+=d*Math.min(1,dt*10);if(Math.abs(d)>.3)u.phase+=dt*Math.min(60,Math.abs(d)*8)*.18;u.swing=Math.max(0,u.swing-dt);u.flash=Math.max(0,u.flash-dt)}
   for(const f of B.fx){f.t-=dt;if(f.vx===undefined)continue;f.x+=f.vx*dt;f.y+=f.vy*dt;f.vy+=(f.blood?620:400)*dt;if(f.blood&&f.vy>0&&f.y>=f.gy){f.t=0;if(Math.random()<.5)splat(f.x,f.gy,f.r*1.4)}}
   B.fx=B.fx.filter(f=>f.t>0);for(const c of B.corpses)corpseTick(c,dt);B.corpses=B.corpses.filter(c=>c.t>0);for(const d of B.decals)d.a-=dt*.06;B.decals=B.decals.filter(d=>d.a>0);
   for(const t of B.texts){t.t-=dt;t.y-=30*dt}B.texts=B.texts.filter(t=>t.t>0);if(B.banner){B.banner.t-=dt;if(B.banner.t<=0)B.banner=null}
