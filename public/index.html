@@ -1349,10 +1349,12 @@ function drawRig(u,s,hgt,x,fy,dir,moving,atk,tnow,flinch){RGX=RCO||ctx;
     rBone(s,'torso',0,0,tor);
     rBone(s,'head',neck[0],neck[1]+D.headDy,Math.PI+lean*.6+hb);
     const rest=moving?(D.heavy?-.05-Math.sin(p)*.4:-.25-Math.sin(p)*.25):-.35+br*.03;let fA,fE,sw;
-    if(atk<0){const q=-atk;fA=rest+(2.75-rest)*q;fE=.5+.4*q;sw=-1.7-.3*q}
+    if(atk<0&&D.heavy){const q=-atk;fA=rest+(-2.75-rest)*q;fE=.95-.7*q;sw=-1.6+1*q}
+    else if(atk>0&&D.heavy){const q=Math.min(1,atk/1.2);fA=-2.75+1.85*q;fE=.25;sw=-.6+.4*q}
+    else if(atk<0){const q=-atk;fA=rest+(2.75-rest)*q;fE=.5+.4*q;sw=-1.7-.3*q}
     else if(atk>0){const q=Math.min(1,atk/1.2);fA=rest+(-1.45-rest)*q;fE=.5-.4*q;sw=-1.7+1.5*q}
     else{fA=rest;fE=.95;sw=-1.6}
-    if(CH){fA=2.9+Math.sin(tnow*9)*.12;fE=.2;sw=.44}else if(u.dead){fA=1.7;fE=.2;sw=-1}else if(lz){fA=L2(rest,.3,lz);fE=L2(.95,2.2,lz);sw=L2(-1.6,-1.98,lz)}
+    if(CH){fA=2.9+Math.sin(tnow*9)*.12;fE=.2;sw=.44}else if(u.dead){fA=1.7;fE=.2;sw=-1}else if(lz&&!D.heavy){fA=L2(rest,.3,lz);fE=L2(.95,2.2,lz);sw=L2(-1.6,-1.98,lz)}
     const e=rBone(s,'uarm',sh[0],sh[1],fA),fa=fA-fE,hd=rEnd(s,'larm',e[0],e[1],fa);
     rBone(s,W,hd[0],hd[1],fa+sw);rBone(s,'larm',e[0],e[1],fa);
   }else if(t==='spear'){
