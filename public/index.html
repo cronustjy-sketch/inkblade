@@ -1237,7 +1237,7 @@ RIGDEF.mage={sx:80,sh:[.4,.15],hh:.6,glow:'130,200,255',wpn:'staff',dk:['uarm','
 RIGDEF.cav={sh:[.5,.2],dk:['hleg','uarm','larm'],B:{head:{a:[.55,.95],b:[.55,.1]},torso:{a:[.5,.86],b:[.5,.02]},uarm:{a:[.6,.14],b:[.3,.9]},larm:{a:[.3,.1],b:[.4,.92]},
     hleg:{a:[.45,.08],b:[.5,.97]},lance:{a:[.5,.7],b:[.5,0]},hhead:{a:[.12,.72],b:[.9,.5]},tail:{a:[.75,.08],b:[.4,.95]}},hk:1.1};
 RIGDEF.cat={dk:['wheel'],B:{arm:{a:[.5,.78],b:[.5,.08]},weight:{a:[.5,.02],b:[.5,.95]}}};
-RIGDEF.drag={dk:['wingF','fleg','bleg'],B:{body:{a:[.5,.5],b:[.95,.5]},neck:{a:[.55,.92],b:[.85,.12]},head:{a:[.18,.6],b:[.97,.62]},jaw:{a:[.08,.3],b:[.95,.5]},
+RIGDEF.drag={dk:['wingN','fleg','bleg'],B:{body:{a:[.5,.5],b:[.95,.5]},neck:{a:[.55,.92],b:[.85,.12]},head:{a:[.18,.6],b:[.97,.62]},jaw:{a:[.08,.3],b:[.95,.5]},
     wingN:{a:[.92,.22],b:[.02,.7]},wingF:{a:[.94,.56],b:[.05,.1]},tail1:{a:[.97,.3],b:[.02,.42]},tail2:{a:[.98,.72],b:[.02,.4]},fleg:{a:[.35,.06],b:[.8,.95]},bleg:{a:[.4,.06],b:[.6,.95]}}};
 const RTINT={drag:{lo:-40,hi:40,c:15,m:{base:-1,azure:208,frost:192,bone:95}},cat:{lo:-35,hi:35,c:210,m:{base:-1,red:358,g:128,p:278}},mage:{m:{base:-1,red:-1}},cav:{lo:-35,hi:35,c:205,m:{base:-1,red:358,g:128,p:278}},priest:{skip:['staff'],lo:-22,hi:22,c:45,m:{base:212,red:358,g:128,p:278}},giant:{grey:1,m:{base:212,red:358,g:128,p:278}},knight:{m:{base:-1,red:-1}},assassin:{lo:-45,hi:45,c:285,m:{base:212,red:358,g:128,p:-1}},witch:{lo:-45,hi:45,c:285,m:{base:248,red:345,g:128,p:-1}},archer:{lo:-50,hi:50,c:120,m:{base:212,red:358,g:-1,p:278}},spear:{lo:-28,hi:28,c:0,m:{base:212,red:-1,g:128,p:278}},shield:{grey:1,m:{base:212,red:358,g:128,p:278}}};
 try{if(window.INK_RIG){for(const t in window.INK_RIG){const ps=window.INK_RIG[t],ks=Object.keys(ps);let n=0;RIG.parts[t]={};
@@ -1477,12 +1477,14 @@ function drawCat(u,s,hgt,x,fy,dir,moving,tnow,flinch){
 function drawDragonRig(u,x,y,face,sc,t){const s=rigSet('drag',u.dk==='dragon'||!u.dk?'base':u.dk);
   const ph=t*6.2+(u.phase||0),fl=Math.sin(ph),dead=u.dead,fire=u.fire>0&&!dead,dive=u.low>0&&!dead;
   const k=(sc/2.8)*80/s.body.width,P=a=>s['_'+a].a0;
-  const pitch=dead?.35:dive?.22:Math.sin(t*1.3+(u.phase||0))*.04,bob=dead?0:-fl*5;
+  const pitch=dead?.35:dive?.22:Math.sin(t*1.3+(u.phase||0))*.04,bob=dead?0:Math.cos(ph)*6;
   ctx.save();ctx.translate(x,y+bob*(sc/2.8));ctx.scale(face*k,k);ctx.rotate(pitch);
   const BW=s.body.width,BH=s.body.height,bp=(nx,ny)=>[(nx-.5)*BW,(ny-.5)*BH];
-  const wN=dead?.9:fl*.55+.05,wF=dead?.7:Math.sin(ph-.55)*.45-.1;
+  const wing=(r,ang,sy,dk,sc)=>{const b=s._wingN,im=s.wingN;ctx.save();ctx.translate(r[0],r[1]);ctx.rotate(ang);ctx.scale(sc,sc*sy);ctx.drawImage(s.lo[dk?'wingND':'wingN'],-b.ax,-b.ay,im.width,im.height);ctx.restore()};
+  const up=q=>(Math.sin(q)+1)/2,uN=dead?.15:fire?.85:dive?.95:up(ph),uF=dead?.1:fire?.8:dive?.9:up(ph-.6);
+  const angN=-.25+uN*1.25,angF=-.15+uF*1.15,syN=.45+uN*.55,syF=.4+uF*.55;
   // far wing + far legs
-  {const r=bp(.62,.14);rBone(s,'wingF',r[0],r[1],P('wingF')+wF,1)}
+  wing(bp(.6,.12),angF,syF,1,.95);
   const legT=dive?-.5:dead?.6:.55+Math.sin(t*2+1)*.06;
   {const r=bp(.2,.55);rBone(s,'bleg',r[0]+14,r[1]-4,P('bleg')+legT*.9,1);const f=bp(.82,.6);rBone(s,'fleg',f[0]+12,f[1]-4,P('fleg')+legT,1)}
   // tail
@@ -1501,7 +1503,7 @@ function drawDragonRig(u,x,y,face,sc,t){const s=rigSet('drag',u.dk==='dragon'||!
   rBone(s,'head',nt[0],nt[1],ha);
   const m=rPt(s,'head',nt[0],nt[1],ha,.95,.7);
   // near wing on top
-  {const r=bp(.66,.16);ctx.save();rBone(s,'wingN',r[0],r[1],P('wingN')+wN);ctx.restore()}
+  wing(bp(.68,.14),angN,syN,0,1.15);
   ctx.restore();
   // mouth in world space (for the fire breath)
   const c=Math.cos(pitch),sn=Math.sin(pitch),mx=m[0]*c-m[1]*sn,my=m[0]*sn+m[1]*c;u._mouth=[x+face*k*mx,y+bob*(sc/2.8)+k*my];
