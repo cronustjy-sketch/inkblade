@@ -513,7 +513,7 @@ body.rot .cards{grid-template-columns:repeat(4,1fr)}
 .w3hp i,.w3boss i{display:block;height:12px;background:#2a1010;border-radius:6px;overflow:hidden}.w3hp em,.w3boss em{display:block;height:100%;background:linear-gradient(90deg,#6cc070,#9fe08f);transition:width .15s}
 .w3hp i.ink{height:8px;background:#1a1a2a}.w3hp i.ink em{background:linear-gradient(90deg,#3a3a50,#b9a0ff)}.w3hp i.ink.full{box-shadow:0 0 12px #b9a0ff}
 .w3cine-on .w3top,.w3cine-on .w3sk,.w3cine-on .w3help,.w3cine-on .w3btns,.w3cine-on .w3joy,.w3cine-on #w3x,.w3cine-on .w3ban,.w3cine-on .w3center,.w3cine-on #w3combo{opacity:0!important;pointer-events:none!important}
-.w3cine{position:fixed;inset:0;z-index:40;cursor:pointer;user-select:none}
+.w3cine{position:fixed;inset:0;z-index:40;pointer-events:auto;cursor:pointer;user-select:none}
 .w3cine .cb{position:absolute;left:0;right:0;height:11vh;background:#000;animation:cbIn .5s ease-out both}.w3cine .cb.t{top:0}.w3cine .cb.b{bottom:0}
 @keyframes cbIn{from{height:0}}
 .w3cine .cbox{position:absolute;left:50%;bottom:13vh;transform:translateX(-50%);width:min(760px,92vw);box-sizing:border-box;background:linear-gradient(180deg,rgba(12,8,8,.85),rgba(0,0,0,.94));border:1px solid rgba(255,255,255,.16);border-left:4px solid #f2b632;border-radius:6px;padding:12px 20px 24px;color:#f6f2e8;text-align:left;animation:cbx .3s ease-out}
@@ -553,7 +553,7 @@ body.rot .cards{grid-template-columns:repeat(4,1fr)}
 .spb.relic{border-color:#ffd36b!important;box-shadow:0 0 14px rgba(255,211,107,.6);animation:rlpulse 1.6s ease-in-out infinite}@keyframes rlpulse{50%{box-shadow:0 0 22px rgba(255,211,107,.95)}}
 .vaultpop .wcard{max-height:86vh;overflow:auto}
 .w3sig{margin-top:5px;font-size:13px;color:#f6eedc;display:flex;align-items:center;gap:4px}.w3sig i{width:11px;height:11px;border-radius:50%;border:2px solid #c8231a;display:inline-block;background:transparent}.w3sig i.on{background:#c8231a;box-shadow:0 0 8px #ff3a2a}.w3sig small{opacity:.6;margin-left:4px;border:1px solid rgba(255,255,255,.3);border-radius:4px;padding:0 4px}
-.w3sigd{position:fixed;inset:0;z-index:35;background:radial-gradient(ellipse at center,rgba(246,238,220,.32),rgba(40,30,20,.55));cursor:crosshair;animation:sgin .25s;touch-action:none}.w3sigd.out{opacity:0;transition:opacity .3s}
+.w3sigd{position:fixed;inset:0;z-index:35;pointer-events:auto;background:radial-gradient(ellipse at center,rgba(246,238,220,.32),rgba(40,30,20,.55));cursor:crosshair;animation:sgin .25s;touch-action:none}.w3sigd.out{opacity:0;transition:opacity .3s}
 .w3sigd canvas{position:absolute;inset:0;width:100%;height:100%}.w3sigd .sgh{position:absolute;top:8vh;left:0;right:0;text-align:center;pointer-events:none;color:#1a1410;text-shadow:0 0 12px rgba(255,250,240,.9)}.w3sigd .sgh b{display:block;font-size:clamp(26px,4vw,40px);font-weight:900;letter-spacing:.2em}.w3sigd .sgh small{font-size:clamp(12px,1.6vw,16px);font-weight:700}
 @keyframes sgin{from{opacity:0}}
 .w3sigf{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:34;text-align:center;pointer-events:none;animation:sgf 1.4s ease-out both;text-shadow:0 0 24px currentColor,0 3px 0 #000}.w3sigf i{display:block;font-style:normal;font-size:clamp(70px,13vw,140px);line-height:1}.w3sigf b{display:block;font-size:clamp(28px,5vw,52px);letter-spacing:.2em;font-weight:900}.w3sigf small{letter-spacing:.4em;font-size:13px;opacity:.85}
@@ -3590,7 +3590,7 @@ function init3D(el,stN){const T=THREE;const ST=stN==='trial'?trialST():stN==='ru
       g.strokeStyle='rgba(200,35,26,.55)';g.lineWidth=2*r;g.beginPath();g.moveTo(pts[0][0],pts[0][1]);for(const p of pts)g.lineTo(p[0],p[1]);g.stroke()};
     const st=e=>{e.preventDefault();e.stopPropagation();down=true;pts.length=0;pts.push(pos(e));drawStroke()};
     const mv=e=>{if(!down)return;e.preventDefault();e.stopPropagation();const p=pos(e),l=pts[pts.length-1];if(Math.hypot(p[0]-l[0],p[1]-l[1])>3*r){pts.push(p);drawStroke()}};
-    const en=e=>{if(!down)return;e.preventDefault();e.stopPropagation();down=false;sigFinish(pts.map(p=>[p[0]/r,p[1]/r]))};
+    const en=e=>{if(!down)return;e.preventDefault();e.stopPropagation();down=false;sigFinish(pts.map(p=>[p[0]/r,p[1]/r]));if(!touchDev&&!e.touches){try{cvs.requestPointerLock&&cvs.requestPointerLock()}catch(x){}}};
     cv.addEventListener('mousedown',st);cv.addEventListener('mousemove',mv);cv.addEventListener('mouseup',en);cv.addEventListener('touchstart',st,{passive:false});cv.addEventListener('touchmove',mv,{passive:false});cv.addEventListener('touchend',en,{passive:false});
     SIG.on.timer=setTimeout(()=>{if(SIG.on&&!down)sigClose()},6000)}
   function sigClose(){const o=SIG.on;if(!o)return;SIG.on=null;G.brush=0;clearTimeout(o.timer);o.d.classList.add('out');setTimeout(()=>o.d.remove(),350)}
@@ -4026,7 +4026,7 @@ function init3D(el,stN){const T=THREE;const ST=stN==='trial'?trialST():stN==='ru
       <div class="row" style="justify-content:center">${win&&ST.id<5?`<button class="btn primary" id="w3nx">${tr('下一关')} → ${W3ST[ST.id].i} ${tr(W3ST[ST.id].n)}</button>`:''}<button class="btn${win&&ST.id<5?'':' primary'}" id="w3re">${tr('再来一次')}</button><button class="btn" id="w3back">${tr('返回')}</button></div></div>`;hud.appendChild(d);
     const nx=d.querySelector('#w3nx');if(nx)nx.onclick=()=>{cleanup();start3D(ST.id+1)};d.querySelector('#w3re').onclick=()=>{cleanup();start3D(ST.id)};d.querySelector('#w3back').onclick=()=>exit3D()}
   function win3D(){if(!G.over)endScreen(true)}function lose3D(){if(!G.over)endScreen(false)}
-  W3={cleanup,G,P,ground,ST};W3.SK=SK;W3.st=()=>({SWS,PR,CYC,HSW});window.__W3=W3;W3.act=act;W3.foes=foes;W3.boss=()=>BOSS;W3.spawnBoss=spawnBoss;W3.TR=TR;W3.ISL=ISL;W3.pickPerk=pickPerk;W3.hurtBoss=hurtBoss;W3.hurtPlayer=hurtPlayer;W3.sigRefill=()=>{SIG.ch=SIG.max};W3.sigRecog=sigRecog;W3.look=(y,p)=>{yaw=y;if(p!=null)pitch=p};
+  W3={cleanup,G,P,ground,ST};W3.SK=SK;W3.st=()=>({SWS,PR,CYC,HSW});window.__W3=W3;W3.act=act;W3.foes=foes;W3.boss=()=>BOSS;W3.spawnBoss=spawnBoss;W3.TR=TR;W3.ISL=ISL;W3.pickPerk=pickPerk;W3.hurtBoss=hurtBoss;W3.hurtPlayer=hurtPlayer;W3.sigRefill=()=>{SIG.ch=SIG.max};W3.sigRecog=sigRecog;W3.yaw=()=>yaw;W3.look=(y,p)=>{yaw=y;if(p!=null)pitch=p};
   banner(ST.coop?'🤝 '+tr('双人首领连战'):ST.rush?'⚡ '+tr('首领连战'):ST.trial?'🃏 '+tr('墨境试炼'):ST.i+' '+tr('第')+ST.id+tr('关')+' · '+tr(ST.n),touchDev?tr('左边拖动移动 · 右边拖动转视角'):tr('点一下画面锁定鼠标'));requestAnimationFrame(frame)}
 function exit3D(){const st=W3&&W3.ST||{};if(W3)W3.cleanup();mode='map';showMap();if(st.coop)showFriends();else if(st.trial||st.rush)showModes();else if(st.ch)showLevels(CHAPTERS.indexOf(chapterOf(st.lv)));else showW3Ladder()}
 function showLevels(ch){
