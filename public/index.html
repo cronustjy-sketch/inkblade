@@ -4391,7 +4391,7 @@ function sigClassify(strokes){const S=strokes.filter(s=>s.length>=2);if(!S.lengt
       if(A.k==='c3'){o.a1=-1.6;o.e1=0;o.a1x=-1.4;o.twist=sw*6.28}if(A.k==='launch'){o.a1=L(.8,-3,sw);o.e1=-.2;o.l1=-.5;o.k1=.3;o.hy=-.15+sw*.2}if(A.k==='air'){o.a1=L(-2.8,1,sw);o.e1=-.2;o.twist=L(.8,-.8,sw)}}
     if(st.slam){o.a1=-3;o.e1=0;o.a2=-2.8;o.l1=-1;o.k1=1.4;o.l2=-1;o.k2=1.4}
     if(st.dash){o.lean=-.7;o.a1=1.2;o.a2=1.2;o.l1=-.8;o.l2=.6}
-    if(st.st3){if(st.atk){o.a2=o.a1;o.e2=o.e1;o.a2x=-(o.a1x||0)}else if(!st.air&&!st.dash){const br=Math.sin(t*2.2)*.05;o.a1=-1.25+br;o.e1=-.35;o.a1x=-.75;o.a2=-1.25+br;o.e2=-.35;o.a2x=.75;if(!run){o.lean=.18;o.l1=.45;o.k1=.75;o.l2=-.55;o.k2=.65;o.hy=-.14}}}
+    if(st.st3){if(st.atk){o.a2=o.a1;o.e2=o.e1;o.a2x=-(o.a1x||0)}else if(!st.air&&!st.dash){const br=Math.sin(t*2.2)*.05;o.a1=1+br;o.e1=.15;o.a1x=-.95;o.a2=1+br;o.e2=.15;o.a2x=.95;if(!run){o.lean=.18;o.l1=.45;o.k1=.75;o.l2=-.55;o.k2=.65;o.hy=-.14}}}
     if(st.tor){o.a1=-1.5;o.a1x=-1.4;o.e1=0;o.a2=-1.5;o.a2x=1.4;o.e2=0;o.lean=0;o.l1=.4;o.l2=-.4}
     if(st.sz){o.a1=-3;o.a2=-3;o.e1=-.2;o.e2=-.2;o.l1=-.8;o.k1=1;o.l2=.3}
     if(st.pose)Object.assign(o,st.pose);
