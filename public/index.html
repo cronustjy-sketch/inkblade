@@ -2957,7 +2957,7 @@ function init3D(el,stN){const T=THREE;const ST=stN==='bnight'?bnightST():stN==='
   const blade2=mkBlade(1,ACC,GR?BM3[HV]:0);blade2.position.y=-.38;blade2.rotation.x=Math.PI/2;PM.la2.add(blade2);blade2.visible=false;
   const inkBlob=new T.Mesh(new T.SphereGeometry(1,14,10),new T.MeshBasicMaterial({color:0x0b0b10}));inkBlob.scale.set(.55,.36,1.5);inkBlob.visible=false;S.add(inkBlob);
   const b3=new T.Group();b3.rotation.order='YXZ';const blade3=mkBlade(1.15,0xff3a2a);blade3.position.y=-.6;b3.add(blade3);S.add(b3);b3.visible=false;
-  const bm=mkBlade(.95,0xff3a2a,GR?BM3[HV]:0);bm.rotation.set(Math.PI/2,0,.12);bm.position.set(.27,-.1,-.2);PM.head.add(bm);bm.visible=false;
+  const bm=mkBlade(.95,0xff3a2a,GR?BM3[HV]:0);bm.rotation.set(Math.PI/2,0,.08);bm.position.set(.31,-.11,.09);PM.head.add(bm);bm.visible=false;
   // ---- particles & decals
   const sphG=new T.SphereGeometry(1,6,4),inkMat=new T.MeshBasicMaterial({color:0x0b0b10});const parts=[];const decals=[];
   function burst(x,y,z,n,pow,col){for(let i=0;i<n;i++){let p=parts.find(q=>!q.on);if(!p){if(parts.length>(touchDev?130:220))break;p={m:new T.Mesh(sphG,col?new T.MeshBasicMaterial({color:col}):inkMat)};S.add(p.m);parts.push(p)}
