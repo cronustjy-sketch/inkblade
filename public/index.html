@@ -233,7 +233,7 @@ body.warp::after{content:'';position:fixed;inset:0;background:#fff;z-index:99;an
 @keyframes ecf{0%{opacity:0;background:#000}12%{opacity:1}55%{opacity:1;background:#000}100%{opacity:0;background:#fff}}
 .w3crack{position:absolute;inset:0;pointer-events:none;z-index:6;background:repeating-linear-gradient(62deg,transparent 0 46px,rgba(200,35,26,.85) 47px 49px,transparent 50px 120px),repeating-linear-gradient(-28deg,transparent 0 80px,rgba(10,0,0,.9) 81px 84px,transparent 85px 170px);animation:crk 1.6s ease forwards}
 @keyframes crk{0%{opacity:0;transform:scale(1.2)}15%{opacity:1;transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(.96)}}
-.w3s.st3{border-color:#ff3a2a!important;box-shadow:0 0 12px rgba(255,58,42,.55)}.w3s.awk{border-color:#ffd36b!important;box-shadow:0 0 12px rgba(255,211,107,.6)}
+.w3stb.on{background:#c8231a!important;color:#fff!important;box-shadow:0 0 14px #ff3a2a}.w3s.st3{border-color:#ff3a2a!important;box-shadow:0 0 12px rgba(255,58,42,.55)}.w3s.awk{border-color:#ffd36b!important;box-shadow:0 0 12px rgba(255,211,107,.6)}
 .w3awk{position:absolute;top:84px;left:50%;transform:translateX(-50%);padding:6px 16px;border-radius:20px;background:linear-gradient(90deg,#3a2a04,#8a6a10,#3a2a04);color:#fff3c8;font-weight:800;letter-spacing:1px;box-shadow:0 0 22px #ffd36b;pointer-events:none;animation:awkp 1s ease-in-out infinite}.w3awk b{font-size:20px;color:#fff}@keyframes awkp{50%{box-shadow:0 0 36px #ffe08a}}.w3cine-on .w3awk{opacity:0}.bnp .bnhero{position:relative;height:150px;border-radius:14px;overflow:hidden;background:radial-gradient(circle at 75% 30%,#3a1430,#0c0618 70%);display:flex;align-items:flex-end;padding:14px;margin-bottom:8px}
 .bnp .bnmoon{position:absolute;right:28px;top:14px;width:84px;height:84px;border-radius:50%;background:radial-gradient(circle at 40% 40%,#ffd9a0,#ff7a1a 60%,#a8300a);box-shadow:0 0 50px #ff6a1a}
 .bnp .bnpk{position:absolute;left:18px;top:10px;font-size:64px;filter:drop-shadow(0 0 14px #ff8a1a);animation:bnf 2.4s ease-in-out infinite}@keyframes bnf{50%{transform:translateY(-6px) rotate(-4deg)}}
@@ -3686,14 +3686,14 @@ function init3D(el,stN){const T=THREE;const ST=stN==='bnight'?bnightST():stN==='
     bar.querySelectorAll('.w3s').forEach(b=>{b.addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();act(b.dataset.k)});b.addEventListener('mousedown',e=>e.stopPropagation());b.onclick=e=>{e.stopPropagation();act(b.dataset.k)}})}
   function awkSkStep(dt){}
   // ===== 🗡️ 三刃奥义 · three-blade techniques (stance T: keys 1-5)
-  let ST3B=null;const ST3DEF=[{k:'fang',i:'👹',n:'鬼牙三连',cd:5},{k:'tiger',i:'🐯',n:'虎咬',cd:6},{k:'twist',i:'🌪️',n:'黑龙旋',cd:9},{k:'falcon',i:'🦅',n:'百八墨隼',cd:7},{k:'six',i:'☯️',n:'六道斩',cd:14}];
+  let ST3B=null;const ST3DEF=[{k:'fang',i:'👹',n:'鬼牙三连',cd:5},{k:'tiger',i:'🐯',n:'虎咬',cd:6},{k:'sever',i:'🌑',n:'墨断苍穹',cd:16},{k:'falcon',i:'🦅',n:'百八墨隼',cd:7},{k:'six',i:'☯️',n:'六道斩',cd:14}];
   function buildBar(cls){const bar=hud.querySelector('.w3sk');bar.innerHTML=SK.map((s2,i)=>`<button class="w3s${cls?' '+cls:''}${ST.ch&&s2.unl>ST.lv?' lock':''}" data-k="sk${i+1}" type="button"><span>${ST.ch&&s2.unl>ST.lv?'🔒':s2.i}</span><i>${touchDev?'':i+1}</i><b></b><small>${tr(s2.s||s2.n)}</small></button>`).join('');
     bar.querySelectorAll('.w3s').forEach(b=>{b.addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();act(b.dataset.k)});b.addEventListener('mousedown',e=>e.stopPropagation());b.onclick=e=>{e.stopPropagation();act(b.dataset.k)}})}
-  function st3Bar(on){if(on&&!ST3B){ST3B={old:SK.splice(0,SK.length),items:ST3DEF.map((d,i)=>({k:d.k,i:d.i,n:d.n,s:d.n,cd:0,max:d.cd,rl:{f:()=>st3Use(i)}}))};SK.push(...ST3B.items);buildBar('st3');banner('🗡️ '+tr('三刃奥义'),tr('1 鬼牙三连 · 2 虎咬 · 3 黑龙旋 · 4 百八墨隼 · 5 六道斩 · 再按 T 换回'))}
-    else if(!on&&ST3B){ST3B.items=SK.splice(0,SK.length);SK.push(...ST3B.old);const it=ST3B.items;ST3B=null;ST3B_SAVE=it;buildBar()}}
+  function st3Bar(on){if(on&&!ST3B){ST3B={old:SK.splice(0,SK.length),items:ST3DEF.map((d,i)=>({k:d.k,i:d.i,n:d.n,s:d.n,cd:0,max:d.cd,rl:{f:()=>st3Use(i)}}))};SK.push(...ST3B.items);buildBar('st3');banner('🗡️ '+tr('三刃奥义'),tr('1 鬼牙三连 · 2 虎咬 · 3 墨断苍穹 · 4 百八墨隼 · 5 六道斩')+' · '+tr(touchDev?'再按 ③ 换回':'再按 T 换回'));const sb=hud.querySelector('.w3stb');if(sb){sb.textContent='①';sb.classList.add('on')}}
+    else if(!on&&ST3B){ST3B.items=SK.splice(0,SK.length);SK.push(...ST3B.old);const it=ST3B.items;ST3B=null;ST3B_SAVE=it;buildBar();const sb=hud.querySelector('.w3stb');if(sb){sb.textContent='③';sb.classList.remove('on')}}}
   let ST3B_SAVE=null;
   function st3Tgt(R){let best=null,bd=R;const b=BOSS;if(bOK(b)){const d=Math.hypot(b.x-P.x,b.z-P.z)-b.rad;if(d<R){best=b;bd=d}}for(const f of foes){if(f.hp<=0)continue;const d=Math.hypot(f.x-P.x,f.z-P.z);if(d<bd-2){bd=d;best=f}}return best}
-  function st3Use(i){const k=ST3DEF[i].k;const r=({fang:st3Fang,tiger:st3Tiger,twist:st3Twist,falcon:st3Falcon,six:st3Six})[k]();return r}
+  function st3Use(i){const k=ST3DEF[i].k;const r=({fang:st3Fang,tiger:st3Tiger,twist:st3Twist,sever:st3Sever,falcon:st3Falcon,six:st3Six})[k]();return r}
   function cutX(x,y,z,a,len,col,tilts){for(const t of tilts){fPlane(x,y,z,0xffffff,len,.1,a,t,.22);fPlane(x,y,z,col,len*1.1,.34,a,t,.32)}}
   function st3Fang(){const t=st3Tgt(14);if(t)P.face=Math.atan2(t.x-P.x,t.z-P.z);const a=P.face,x0=P.x,z0=P.z;const [x1,z1]=clampA(x0+Math.sin(a)*11,z0+Math.cos(a)*11);
     center('👹 '+tr('鬼牙三连！'),'#ff3a2a');sfx('ult');P.inv=.6;P.vx=P.vz=0;const set=new Set();
@@ -3709,6 +3709,18 @@ function init3D(el,stN){const T=THREE;const ST=stN==='bnight'?bnightST():stN==='
     const head=new T.Mesh(new T.ConeGeometry(.6,1.4,5),new T.MeshBasicMaterial({color:0x0b0b10}));head.position.y=4.4;head.rotation.z=Math.PI;g.add(head);g.position.set(x,0,z);S.add(g);
     hz.push({t:0,T:1.8,tk:0,f:(h,dt)=>{const st=Math.min(dt||.016,.05);x+=Math.sin(a)*13*st;z+=Math.cos(a)*13*st;[x,z]=clampA(x,z);g.position.set(x,0,z);g.rotation.y+=st*14;g.children.forEach((c,i)=>{c.rotation.z+=st*(6+i)});
       h.tk-=st;if(h.tk<=0){h.tk=.12;for(const f of foes)if(f.hp>0){const dx=x-f.x,dz=z-f.z,d=Math.hypot(dx,dz);if(d<4.5){f.x+=dx/d*.6;f.z+=dz/d*.6;if(d<2.6)hurtFoe(f,14,0,4)}}if(bOK(BOSS)&&Math.hypot(BOSS.x-x,BOSS.z-z)<2.6+BOSS.rad)hurtBoss(22,true);burst(x,1+Math.random()*3,z,3,6,0x8a3aff);if(Math.random()<.4)splat(x,z,.9)}},end:()=>{S.remove(g);burst(x,1.5,z,40,10,0x8a3aff);fRing(x,z,0x8a3aff,6,.4)}})}
+  function ciSever(g,W,H,t,r,S){const cx=W/2,cy=H/2;ciBg(g,W,H,'#3a0606','#120202','#020101');ciLines(g,W,H,cx,cy,Math.min(W,H)*.3,t,S,'rgba(255,90,70,A)',r);
+    g.save();g.translate(cx,cy);const k=ease(Math.min(1,(t-.15)/.35)),L2=Math.hypot(W,H)*.6;g.rotate(-.55);
+    for(const [dy,w,c] of [[0,26,'#0b0b10'],[0,10,'#ff3a2a'],[0,3,'#ffffff']]){g.strokeStyle=c;g.lineWidth=w*r;g.lineCap='round';g.beginPath();g.moveTo(-L2,dy);g.lineTo(-L2+L2*2*k,dy);g.stroke()}
+    if(t>.5){for(let i=0;i<30;i++){const q=S[i%S.length],x=(q[0]-.5)*L2*1.6,y=(q[1]-.5)*60*r*(1+t*3);g.fillStyle=i%3?'#0b0b10':'#ff3a2a';g.beginPath();g.arc(x,y,(2+q[2]*7)*r,0,7);g.fill()}}
+    g.restore();if(t>.55&&t<.75){g.fillStyle=`rgba(255,255,255,${(1-(t-.55)/.2)*.8})`;g.fillRect(0,0,W,H)}}
+  function st3Sever(){const a=P.face,x0=P.x,z0=P.z,len=34;P.inv=2.2;P.vx=P.vz=0;cutIn('墨断苍穹','INK · SEVER THE SKY',ciSever,'#ff3a2a',1.25);
+    later(.05,()=>{if(!W3)return;P.vy=Math.max(P.vy,9);P.atk={k:'c2',t:0,T:.4,hit:1};const mx=x0+Math.sin(a)*len/2,mz=z0+Math.cos(a)*len/2;
+      fPlane(mx,6,mz,0x0b0b10,1.4,len,a,0,1.2,Math.PI/2);fPlane(mx,6.02,mz,0xffffff,.25,len,a,0,.9,Math.PI/2);fPlane(mx,7,mz,0xff3a2a,.6,len*1.05,a,0,1.1,0);fPlane(mx,7,mz,0x0b0b10,.2,len*1.05,a,0,1.4,0);
+      G.shake=1.6;G.stop=.2;sfx('boom');sfx('ult');const v=document.createElement('div');v.className='w3crack';hud.appendChild(v);setTimeout(()=>v.remove(),1600);
+      const hit=new Set();for(let d=1;d<=len;d+=2){const [x,z]=clampA(x0+Math.sin(a)*d,z0+Math.cos(a)*d);later(d*.01,()=>{burst(x,1+Math.random()*4,z,6,9,d%4?0x0b0b10:0xff3a2a);splat(x,z,1.4)});fHit(x,z,3,130,8,14,0,hit)}
+      if(bOK(BOSS)&&!hit.has(BOSS)&&segD(BOSS.x,BOSS.z,x0,z0,a,len)<3+BOSS.rad){hurtBoss(340,true)}else if(hit.has(BOSS))hurtBoss(180,true);
+      later(.6,()=>{if(!W3)return;for(let d=2;d<=len;d+=3){const [x,z]=clampA(x0+Math.sin(a)*d,z0+Math.cos(a)*d);later(d*.012,()=>{burst(x,.5,z,14,12,0xff3a2a);fRing(x,z,0xff3a2a,2.5,.3)})}G.shake=1.2;sfx('boom');center('🌑 '+tr('墨断苍穹')+'！','#ff3a2a')})})}
   function st3Falcon(){center('🦅 '+tr('百八墨隼！'),'#ffffff');sfx('ult');G.shake=.6;for(const [o,d] of [[-.18,0],[0,.08],[.18,.16]])later(d,()=>{if(!W3)return;const a=P.face+o,wm=crescent(0x0b0b10,0xffffff,1.6);wm.rotation.y=a;pwaves.push({x:P.x,z:P.z,a,t:1.1,m:wm,hit:new Set(),dm:60,bd:95});burst(P.x+Math.sin(a)*1.5,1.2,P.z+Math.cos(a)*1.5,10,8,0xffffff)})}
   function st3Six(){const t=st3Tgt(16);if(!t){center(tr('附近没有敌人'),'#aaa');return false}const isB=t===BOSS;center('☯️ '+tr('六道斩'),'#ff3a2a');sfx('ult');G.slowT=Math.max(G.slowT,1.2);P.inv=1.6;const r=(isB?t.rad:0)+2;
     for(let i=0;i<6;i++)later(i*.1,()=>{if(!W3||t.hp<=0)return;const an=i/6*6.283+.3;[P.x,P.z]=clampA(t.x+Math.sin(an)*r,t.z+Math.cos(an)*r);P.face=Math.atan2(t.x-P.x,t.z-P.z);P.atk={k:'c'+(1+i%3),t:0,T:.1,hit:1};
