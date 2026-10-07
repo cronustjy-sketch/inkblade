@@ -4305,7 +4305,7 @@ function init3D(el,stN){const T=THREE;const ST=stN==='bnight'?bnightST():stN==='
     const D=STGD[STG.s];if(D)d*=D.tk;if(stgColl(d))return 0;return d}
   function stgTick(dt){if(!(P.awk>0&&AWKSK)||ST.pvp){if(STG)stgEnd();return}if(!STG)stgInit();const mx=stgMax();
     let e=$h('w3inkst');if(!e){e=document.createElement('div');e.id='w3inkst';e.className='w3inkst';hud.appendChild(e);if(touchDev){const bt=document.createElement('button');bt.type='button';bt.className='w3inkb';bt.textContent='⇧';bt.addEventListener('touchstart',ev=>{ev.preventDefault();if(STG)STG.tch=1});bt.addEventListener('touchend',ev=>{ev.preventDefault();if(STG)STG.tch=0});hud.appendChild(bt)}}
-    e.hidden=mx<=1;const bt=hud.querySelector('.w3inkb');if(bt)bt.hidden=mx<=1||STG.s>=Math.min(4,mx);
+    e.hidden=mx<=1;const bt=hud.querySelector('.w3inkb');if(bt)bt.hidden=mx<=1||STG.s>=Math.min(4,mx)||!!G.cine;
     if(STG.crash>0)STG.crash-=dt;if(STG.boil>0)STG.boil-=dt;if(STG.ref>0)STG.ref-=dt;if(STG.par>0)STG.par-=dt;
     const D=STGD[STG.s],gd=STG.god>0;P.dm=STG.dm0*(D?D.dm:1)*(STG.boil>0?1.25:1)*(STG.crash>0?.7:1)*(gd?3:1);P.spm=STG.sp0*(D?D.sp:1)*(STG.boil>0?1.4:1)*(STG.crash>0?.65:1)*(gd?2:1);
     if(STG.s>1){STG.t-=dt;if(STG.s===2&&P.hp>P.max*.25)P.hp-=P.max*.006*dt;
@@ -4318,7 +4318,7 @@ function init3D(el,stN){const T=THREE;const ST=stN==='bnight'?bnightST():stN==='
     const hold=(K.h||STG.tch)&&!G.cine&&STG.s<Math.min(4,mx)&&STG.crash<=0&&!gd&&!G.over;
     if(hold){STG.ch+=dt;const nc=STGD[STG.s+1].col;if(Math.random()<.9)burst(P.x+(Math.random()-.5)*2.4,.2+Math.random()*.4,P.z+(Math.random()-.5)*2.4,1,5,nc===0x1a1a22?0xffd36b:nc);if(STG.ch>=1.2){STG.ch=0;stgUp()}}else STG.ch=Math.max(0,STG.ch-dt*2);
     const k=STG.s+'|'+Math.ceil(STG.t)+'|'+Math.round(STG.ch*10)+'|'+(STG.crash>0)+'|'+mx+'|'+Math.ceil(STG.god);if(e.dataset.k!==k){e.dataset.k=k;const D2=STGD[STG.s];
-      e.innerHTML=`<b>🖌️ ${tr('墨阶')} ${STG.s}/${mx}</b>${D2?` · ${tr(D2.n)} <em>${Math.ceil(STG.t)}s</em>`:''}${gd?` · ☀️ <em>${Math.ceil(STG.god)}s</em>`:''}${STG.crash>0?` · 😮‍💨 ${tr('力竭')}`:''}<i><u style="width:${Math.min(100,STG.ch/1.2*100)}%"></u></i><small>${STG.s<Math.min(4,mx)&&STG.crash<=0&&!gd?(touchDev?tr('按住 ⇧ 升阶'):tr('按住 H 升阶')):STG.s===5?tr('最高阶'):mx>=5&&!STG.g5?'💀 '+tr('墨阶 · 白：只有快倒下的时候才会觉醒'):tr('最高阶')}</small>`;e.className='w3inkst s'+STG.s}}
+      e.innerHTML=`<b>🖌️ ${tr('墨阶')} ${STG.s}/${mx}</b>${D2?` · ${tr(D2.n)}${gd?'':` <em>${Math.ceil(STG.t)}s</em>`}`:''}${gd?` · ☀️ <em>${Math.ceil(STG.god)}s</em>`:''}${STG.crash>0?` · 😮‍💨 ${tr('力竭')}`:''}<i><u style="width:${Math.min(100,STG.ch/1.2*100)}%"></u></i><small>${STG.s<Math.min(4,mx)&&STG.crash<=0&&!gd?(touchDev?tr('按住 ⇧ 升阶'):tr('按住 H 升阶')):STG.s===5?tr('最高阶'):mx>=5&&!STG.g5?'💀 '+tr('墨阶 · 白：只有快倒下的时候才会觉醒'):tr('最高阶')}</small>`;e.className='w3inkst s'+STG.s}}
 
   
   // 💀 → ⬜ near death: only way into Stage 5
@@ -4328,7 +4328,7 @@ function init3D(el,stN){const T=THREE;const ST=stN==='bnight'?bnightST():stN==='
     G.slowT=1;G.shake=1;sfx('boom');center('……','#888');burst(P.x,1,P.z,40,5,0x444444);let fall=0;hz.push({t:0,T:1.6,f:(h)=>{fall=Math.min(1,h.t/.6);PM.root.rotation.x=-1.45*fall},end:()=>{}});
     const bk=document.createElement('div');bk.className='w3coll';bk.innerHTML='<i></i>';document.body.appendChild(bk);
     const n=b&&b.hp>0?b.name:'???',L=[{w:'y',s:'（……身体……动不了了……）'},{w:'b',n,s:'结束了。你的墨，已经烧干了。'},{w:'b',n,s:'倒下吧，墨刃。',big:1}].concat(GODL().filter(x=>x.w!=='t'));
-    setTimeout(()=>{if(!W3||G.over){bk.remove();return}startCine(L,()=>{bk.remove();godCutIn(()=>{PM.root.rotation.x=0;if(b)b.cineIdle=0;if(!STG)return;P.inv=1.5;P.hp=P.max;stgSet(5);STG.god=30;STG.t=30;PM.mat.color.setHex(0xffffff);G.shake=2;sfx('ult');paintFlash('rgba(255,255,255,.9)',300);burst(P.x,1.5,P.z,160,18,0xffffff);burst(P.x,1.5,P.z,60,12,0x111111);fRing(P.x,P.z,0xffffff,24,1.2);fRing(P.x,P.z,0x111111,14,.9);
+    setTimeout(()=>{if(!W3||G.over){bk.remove();return}startCine(L,()=>{bk.remove();godCutIn(()=>{PM.root.rotation.x=0;if(b)b.cineIdle=0;if(!STG)return;P.inv=1.5;P.hp=P.max;stgSet(5,true);STG.god=30;STG.t=30;PM.mat.color.setHex(0xffffff);G.shake=2;sfx('ult');paintFlash('rgba(255,255,255,.9)',300);burst(P.x,1.5,P.z,160,18,0xffffff);burst(P.x,1.5,P.z,60,12,0x111111);fRing(P.x,P.z,0xffffff,24,1.2);fRing(P.x,P.z,0x111111,14,.9);
       for(const f of foes)if(f.hp>0&&Math.hypot(f.x-P.x,f.z-P.z)<14)hurtFoe(f,600,20,16);banner('☀️ '+tr('墨阶 · 白 · 墨神觉醒'),tr('30 秒 · 速度 ×2 · 伤害 ×3 · 白日冲击波 · 抓住敌人的攻击扔回去 · 4 神墨·终极一击'));if(b&&b.ldT)b.ldT.god=1})})},1700)}
 
   // ☀️ cinematic cut-in for the Ink God awakening (drawn on a full-screen canvas)
