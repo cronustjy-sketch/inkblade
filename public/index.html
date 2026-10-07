@@ -4326,7 +4326,7 @@ function init3D(el,stN){const T=THREE;const ST=stN==='bnight'?bnightST():stN==='
   function stgCollapse(){if(!stgCanColl())return;STG.g5=1;const b=BOSS;if(b){b.cineIdle=1;clearMv(b)}P.vx=P.vz=0;P.atk=null;P.inv=99;P.hp=Math.max(1,P.max*.04);if(STG.s>1)stgSet(1,true);STG.crash=0;
     G.slowT=1;G.shake=1;sfx('boom');center('……','#888');burst(P.x,1,P.z,40,5,0x444444);let fall=0;hz.push({t:0,T:1.6,f:(h)=>{fall=Math.min(1,h.t/.6);PM.root.rotation.x=-1.45*fall},end:()=>{}});
     const bk=document.createElement('div');bk.className='w3coll';bk.innerHTML='<i></i>';document.body.appendChild(bk);
-    const n=b&&b.hp>0?b.name:'???',L=[{w:'y',s:'（……身体……动不了了……）'},{w:'b',n,s:'结束了。你的墨，已经烧干了。'},{w:'b',n,s:'倒下吧，墨刃。',big:1}].concat(GODL());
+    const n=b&&b.hp>0?b.name:'???',L=[{w:'y',s:'（……身体……动不了了……）'},{w:'b',n,s:'结束了。你的墨，已经烧干了。'},{w:'b',n,s:'倒下吧，墨刃。',big:1}].concat(GODL().filter(x=>x.w!=='t'));
     setTimeout(()=>{if(!W3||G.over){bk.remove();return}startCine(L,()=>{bk.remove();godCutIn(()=>{PM.root.rotation.x=0;if(b)b.cineIdle=0;if(!STG)return;P.inv=1.5;P.hp=P.max;stgSet(5);STG.god=30;STG.t=30;PM.mat.color.setHex(0xffffff);G.shake=2;sfx('ult');paintFlash('rgba(255,255,255,.9)',300);burst(P.x,1.5,P.z,160,18,0xffffff);burst(P.x,1.5,P.z,60,12,0x111111);fRing(P.x,P.z,0xffffff,24,1.2);fRing(P.x,P.z,0x111111,14,.9);
       for(const f of foes)if(f.hp>0&&Math.hypot(f.x-P.x,f.z-P.z)<14)hurtFoe(f,600,20,16);banner('☀️ '+tr('墨阶 · 白 · 墨神觉醒'),tr('30 秒 · 速度 ×2 · 伤害 ×3 · 白日冲击波 · 抓住敌人的攻击扔回去 · 4 神墨·终极一击'));if(b&&b.ldT)b.ldT.god=1})})},1700)}
 
