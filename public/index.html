@@ -758,7 +758,8 @@ body.rot .cards{grid-template-columns:repeat(4,1fr)}
 .w3help{position:absolute;bottom:10px;left:0;right:0;text-align:center;color:#3a2a14;font-size:13px;font-weight:700;text-shadow:0 0 6px #fff}
 .w3joy{position:absolute;width:120px;height:120px;border-radius:50%;border:3px solid rgba(10,10,14,.35);background:rgba(10,10,14,.12);left:30px;bottom:40px;top:auto;pointer-events:none;opacity:.6}.w3joy.on{opacity:1}.w3joy i{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(10,10,14,.7)}
 .w3btns{position:absolute;right:14px;bottom:20px;display:grid;grid-template-columns:repeat(3,64px);gap:10px}.w3btns button{width:64px;height:64px;border-radius:50%;border:3px solid #f2b632;background:rgba(10,10,14,.75);font-size:26px;color:#fff}
-.w3end{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,10,14,.55);pointer-events:auto}
+.w3end{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,10,14,.55);pointer-events:auto;z-index:40}
+.w3end~.w3inkst,.w3end~.w3inkb,.w3hud:has(.w3end) .w3inkst,.w3hud:has(.w3end) .w3inkb,.w3hud:has(.w3end) .w3sk,.w3hud:has(.w3end) .w3dps,.w3hud:has(.w3end) .w3collb{display:none!important}
 
 @media (pointer:coarse){
  .w3btns{grid-template-columns:repeat(3,54px);gap:8px;right:calc(10px + env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom))}
