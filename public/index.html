@@ -9398,7 +9398,7 @@ function fr2Tick(dt){const W2=B.war;if(!W2)return;if(!W2.fr)W2.fr={k:B.C.fr,t:0,
     <div class="row" style="justify-content:center"><button class="btn primary" type="button" id="nx">${tr('再来一次')}</button><button class="btn" type="button" id="back">${tr('断裂之境')}</button></div></div>`;
     $('nx').onclick=()=>startLevel(n);$('back').onclick=showFracture};
   if(k===5&&R.first&&!save.frSecret)frSecret2(done);else done()}}
-{const f=showModes;showModes=function(){f();const mc=overlay.querySelector('.mcards');if(!mc||$('frCard'))return;const ok=!!((save.c3||{})[1000]||(save.cleared||{})[1000]);
+{const f=showModes;showModes=function(){f();const mc=overlay.querySelector('.mcards');if(true||!mc||$('frCard'))return;const ok=!!((save.c3||{})[1000]||(save.cleared||{})[1000]);
   mc.insertAdjacentHTML('afterbegin',`<button class="mcard frmc${ok?'':' lock'}" id="frCard" type="button" style="--b1:#1a0204;--b2:#ff2a1a"><canvas data-mu="knight" data-mu2="" data-dir="-1"></canvas><span class="mbadge">🩸</span>${ok?'':'<span class="mlock">🔒</span>'}<div class="mban"><b>${tr('断裂之境')}</b><small>${ok?'🔮 '+frFrags()+'/5 · 🔷 '+(save.frm||0):tr('2D 或 3D 通关第 1000 关后解锁')}</small></div></button>`);
   $('frCard').onclick=()=>{if(!ok){sfx('alarm');return}sfx('skill');showFracture()}}}
 
@@ -9503,6 +9503,7 @@ body.bmglow .mttl{color:#ff5a4a!important;text-shadow:0 0 10px #ff2a1a,0 0 24px 
 .bnseal i{font-style:normal;margin-top:16px;font-size:clamp(26px,5vw,44px);letter-spacing:.5em;color:#9affd0;text-shadow:0 0 14px #3aff9a;animation:bnsym .18s steps(2) infinite}@keyframes bnsym{50%{opacity:.25}}
 .hallo-bar.bmi{background:linear-gradient(90deg,#2a0202,#8a0a06)!important;border-color:#ff3a2a!important;box-shadow:0 0 18px rgba(255,40,30,.45)!important}
 .hkrw{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}.hkrw div{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:8px 6px;border-radius:10px;background:rgba(0,0,0,.35);border:1px solid #5a3a1a;font-size:22px}.hkrw b{font-size:13px;color:#ffd36b}.hkrw small{font-size:11px;color:#aaa}.hkrw .own{border-color:#4a8a3a;background:rgba(40,80,30,.25)}
+.frtab{background:linear-gradient(90deg,#2a0204,#8a1a0a)!important;color:#ffd7c8!important;border-color:#ff3a2a!important}.frtab:disabled{opacity:.5}
 </style>`);
 // ---------- 🌕 INKTOBER · 诅咒之月 The Cursed Moon ----------
 // the whole event runs Oct 1 → Nov 7 (Boss Night end). Owned rewards are never removed.
@@ -9642,6 +9643,16 @@ function hkEnding(done){const o=document.createElement('div');o.className='f15e 
   const fin=()=>{o.classList.add('out');if(typeof save!=='undefined'){save.hk=save.hk||{};save.hk.seen=1;persist()}setTimeout(()=>{o.remove();done&&done()},800)};
   const step=()=>{if(stop)return;if(i<L.length){const l=L[i++];o.classList.toggle('f15w',/\bw\b|moon/.test(l[1]));o.classList.toggle('hkred',/red/.test(l[1])&&i<3);
       o.innerHTML=l[1]==='moon'?'<div class="hkcres"><svg viewBox="0 0 200 200"><path class="hkst" d="M150 30 A80 80 0 1 0 150 170 A62 62 0 1 1 150 30 Z"/></svg></div>':`<p class="${l[1].replace(/\bw\b/g,'')}">${tr(l[0])}</p>`;o.appendChild(sk);setTimeout(step,l[2]);return}fin()};step()}
+// 🩸 Fractured Realm lives inside the chapters now (3D act bar + 2D chapter tabs), not in Modes
+function frOK(){return !!((save.c3||{})[1000]||(save.cleared||{})[1000])}
+let frBack=null;
+function frTabBtn(cls){const ok=frOK();return `<button class="${cls} frtab" type="button" data-frt="1"${ok?'':' disabled'}>${ok?'🩸 ':'🔒 '}${tr('断裂之境')}${ok?' · '+frFrags()+'/5':' · 1000'}</button>`}
+{const f=oxActTabs;oxActTabs=function(on){return f(on)+frTabBtn('c3act')}}
+function frBind(back){overlay.querySelectorAll('[data-frt]').forEach(b=>b.onclick=()=>{if(!frOK())return;sfx('skill');frBack=back;showFracture()})}
+{const f=showC3;showC3=function(a){f(a);frBind(()=>showC3(a))}}
+{const f=showOX;showOX=function(a){f(a);frBind(()=>showOX(a))}}
+{const f=showLevels;showLevels=function(ch){f(ch);const bar=overlay.querySelector('.chtabs');if(bar&&frOK()&&!bar.querySelector('[data-frt]'))bar.insertAdjacentHTML('beforeend',frTabBtn('tab'));frBind(()=>showLevels(ch))}}
+{const f=showFracture;showFracture=function(){f();const b=$('mBack');if(b&&frBack){const k=frBack;b.onclick=()=>{frBack=null;k()};frBack=k}}}
 function showSplash(){
   const el=document.createElement('div');el.id='splash';
   el.innerHTML=`<canvas id="spc"></canvas><div class="splogo"><div class="spt">墨刃纪元</div><div class="sps">INK BLADE ERA</div></div>
