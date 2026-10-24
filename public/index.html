@@ -3739,7 +3739,7 @@ function init3D(el,stN){const T=THREE;const ST=stN==='raid'?raidST():(typeof stN
   // ===== 🗡️ 3D GLB models auto-rigged onto the stick skeleton (hero + bosses)
   const ssm=(a,b,x)=>{let t=(x-a)/(b-a);t=t<0?0:t>1?1:t;return t*t*(3-2*t)};
   const RIGS={
-    hero:{url:'hero.glb?v=1',hipY:.79,bp:{hip:[0,.79,0],chest:[0,1.12,0],head:[0,2.03,0],uaR:[0,1.81,.43],laR:[0,1.31,.43],uaL:[0,1.81,-.43],laL:[0,1.31,-.43],ulR:[0,.79,.36],llR:[0,.5,.36],ulL:[0,.79,-.36],llL:[0,.5,-.36]},
+    hero:{url:'hero.glb?v=1',hipY:.79,keep:()=>[typeof blade2!=='undefined'?blade2:null,typeof bm!=='undefined'?bm:null],bp:{hip:[0,.79,0],chest:[0,1.12,0],head:[0,2.03,0],uaR:[0,1.81,.43],laR:[0,1.31,.43],uaL:[0,1.81,-.43],laL:[0,1.31,-.43],ulR:[0,.79,.36],llR:[0,.5,.36],ulL:[0,.79,-.36],llL:[0,.5,-.36]},
       wf(y,z,w){const az=Math.abs(z),R=z>0;let arm=y>=.85?ssm(.24,.37,az)*(1-ssm(1.86,1.99,y)):(z>.55?1:0);
         if(arm>0){const low=ssm(1.42,1.2,y);w[R?5:7]+=arm*low;w[R?4:6]+=arm*(1-low)}
         const rest=1-arm,leg=1-ssm(.72,.98,y),knee=ssm(.6,.4,y),sR=ssm(-.08,.08,z),lg=rest*leg,body=rest*(1-leg);
@@ -3795,12 +3795,19 @@ function init3D(el,stN){const T=THREE;const ST=stN==='raid'?raidST():(typeof stN
     M.root.add(root);M.root.add(sk);M.root.updateMatrixWorld(true);sk.bind(new T.Skeleton(bones));
     if(M.blade&&C.hideBlade){M.blade.traverse(o=>{if(o.isMesh)o.visible=false});M.blade.visible=false}
     else if(M.blade){B.laR.add(M.blade);M.blade.position.set(.04,-.4,.11);M.blade.rotation.set(0,0,0);M.blade.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),new T.Vector3(.62,-.62,.2).normalize())}
+    if(M===PM&&typeof blade2!=='undefined'&&blade2){B.laL.add(blade2);blade2.position.set(.04,-.4,-.11);blade2.rotation.set(0,0,0);blade2.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),new T.Vector3(.62,-.62,-.2).normalize())}
+    if(M===PM&&typeof bm!=='undefined'&&bm){B.head.add(bm);bm.position.set(.36,-.12,.06)}
+    sk.userData.rig=1;mat.emissive=new T.Color(0);
+    if(M===PM){const gg=geo.clone(),gp=gg.attributes.position,gn=gg.attributes.normal;for(let i=0;i<gp.count;i++)gp.setXYZ(i,gp.getX(i)+gn.getX(i)*.045,gp.getY(i)+gn.getY(i)*.045,gp.getZ(i)+gn.getZ(i)*.045);
+      const gm=new T.MeshBasicMaterial({color:0xffffff,side:T.BackSide,transparent:true,opacity:.5,depthWrite:false,blending:T.AdditiveBlending,skinning:true,fog:false});const gl=new T.SkinnedMesh(gg,gm);gl.frustumCulled=false;gl.scale.copy(sk.scale);M.root.add(gl);gl.bind(sk.skeleton,sk.bindMatrix);gl.visible=false;M.g3glow=gl}
     if(M.scarf)for(const q of M.scarf)q.m.material.visible=false;
     M.g3={sk,hid,hipY:C.hipY,b:B,C};heroSync(M)}
   function heroGLB(M){if(heroGLBOn())rigGLB(M,'hero')}
   function heroSync(M){const g=M.g3;if(!g)return;const b=g.b;b.hip.position.y=g.hipY+(M.hip.position.y/M.sc-1.05-(M.hyo||0));b.hip.rotation.copy(M.hip.rotation);b.chest.rotation.copy(M.chest.rotation);b.chest.rotation.z-=(M.hunch||0);b.head.rotation.copy(M.head.rotation);
     b.uaR.rotation.copy(M.ua1.rotation);b.laR.rotation.copy(M.la1.rotation);b.uaL.rotation.copy(M.ua2.rotation);b.laL.rotation.copy(M.la2.rotation);b.ulR.rotation.copy(M.ul1.rotation);b.llR.rotation.copy(M.ll1.rotation);b.ulL.rotation.copy(M.ul2.rotation);b.llL.rotation.copy(M.ll2.rotation);
     if(g.C&&g.C.sync)g.C.sync(M,b);
+    if(M===PM){const fk=P.form||'',tk=fk+(P.st3?'3':'');if(g.tk!==tk){g.tk=tk;const E={basic:0x1a1200,blood:0x2a0302,colossus:0x04102a,iron:0x16161c,blank:0x3a3a3a,free:0x201804}[fk]||0;g.sk.material.emissive.setHex(E);g.sk.material.color.setHex(fk==='blank'?0xffffff:fk==='iron'?0xc8c8d0:0xffffff);const gl=M.g3glow;if(gl){gl.visible=!!fk||!!P.st3;gl.material.color.setHex({basic:0xffd36b,blood:0xff2a1a,colossus:0x3a8aff,iron:0xc8c8d8,blank:0xffffff,free:0xffd36b}[fk]||(P.st3?0xff3a2a:0xffffff))}}
+      if(fk){const p=.75+.25*Math.sin(G.t*6);g.sk.material.emissiveIntensity=p;if(M.g3glow)M.g3glow.material.opacity=.3+.25*p}else if(M.g3glow)M.g3glow.material.opacity=.3}
     const A=P.atk;if(A&&M===PM){const p=Math.min(1,A.t/(A.T||.3)),e=p<.28?p/.28:1-Math.pow(1-(p-.28)/.72,3),k=A.k||'c1';
       if(k==='c2'){b.chest.rotation.y+=(p<.28?.9*e:.9-1.9*e);b.uaR.rotation.x+=-1.3+ (p<.28?-.3*e:-.3+1.5*e);b.uaR.rotation.z+=1.3;b.laR.rotation.z+=.3}
       else if(k==='c3'||k==='air'){b.uaR.rotation.z+=(p<.28?2.9*e:2.9-3.5*e);b.laR.rotation.z+=(p<.28?.6*e:.6-.8*e);b.chest.rotation.z+=(p<.28?.15*e:.15-.4*e);b.uaL.rotation.z+=(p<.28?2.4*e:2.4-2.6*e)}
@@ -4866,7 +4873,7 @@ function init3D(el,stN){const T=THREE;const ST=stN==='raid'?raidST():(typeof stN
     const tex=g5Tex();F.tex=tex;PM.mat.map=tex;PM.mat.color.setHex(0xffffff);PM.mat.needsUpdate=true;
     const ink=new T.MeshBasicMaterial({color:0x0b0b10,side:T.BackSide}),glow=new T.MeshBasicMaterial({color:0xffffff,side:T.BackSide,transparent:true,opacity:.42,depthWrite:false,blending:T.AdditiveBlending,fog:false}),glow2=new T.MeshBasicMaterial({color:0xffffff,side:T.BackSide,transparent:true,opacity:.16,depthWrite:false,blending:T.AdditiveBlending,fog:false});F.glow=glow;F.glow2=glow2;
     const body=[];PM.root.traverse(o=>{if(o.isMesh&&o.material===PM.mat)body.push(o)});F.sw=[];const blk=new T.MeshBasicMaterial({color:0x0b0b10}),inBlade=o=>{let q=o;while(q){if(q===PM.blade)return true;q=q.parent}return false};
-    PM.root.traverse(o=>{if(!o.isMesh||o.material===PM.mat||inBlade(o)||!o.material)return;const t=o.material.type;if(t==='MeshToonMaterial'){F.sw.push([o,o.material]);o.material=PM.mat}else if(t==='MeshBasicMaterial'&&!o.material.transparent){F.sw.push([o,o.material]);o.material=blk}});
+    PM.root.traverse(o=>{if(!o.isMesh||o.isSkinnedMesh||o.material===PM.mat||inBlade(o)||!o.material)return;const t=o.material.type;if(t==='MeshToonMaterial'){F.sw.push([o,o.material]);o.material=PM.mat}else if(t==='MeshBasicMaterial'&&!o.material.transparent){F.sw.push([o,o.material]);o.material=blk}});
     for(const o of body){const a=new T.Mesh(o.geometry,ink);a.scale.setScalar(1.18);stgAdd(o,a);const b=new T.Mesh(o.geometry,glow);b.scale.setScalar(1.55);stgAdd(o,b);const c=new T.Mesh(o.geometry,glow2);c.scale.setScalar(2.1);stgAdd(o,c);F.hull.push(b,c)}
     const mk=(geo,c,op)=>new T.Mesh(geo,new T.MeshBasicMaterial({color:c,transparent:true,opacity:op,depthWrite:false,side:T.DoubleSide,fog:false}));
     const gr=new T.Group();gr.add(mk(new T.CircleGeometry(2.2,48),0xffffff,.22));gr.add(mk(new T.RingGeometry(2.1,2.3,64),0x111111,.6));gr.rotation.x=-Math.PI/2;stgAdd(S,gr);F.gr=gr;
