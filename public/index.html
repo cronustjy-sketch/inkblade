@@ -3046,7 +3046,7 @@ function ftST(k){const G0={colossus:{n:'不动之山',e:'The Unmoving Mountain',
   free:{n:'笔之守卫',e:'The Brush Guardian',b:'blade',body:'ender',c:[0x0a0a0a,0xffd36b,0xffffff],p:['brush','halo'],m:['stroke','cross','blink','beam','pull'],p2:['meteor','orbit','rain'],hp:60000,sp:5.5,dm:1.7,cd:1,chain:.3}}[k]||{};
   return {ft:k,id:'ft_'+k,kit:'ink',i:'⚡',n:G0.n,waves:[],wt:[],boss:'gen',gdef:G0,bname:G0.n,hpm:1,atkm:k==='free'?1.8:1.3,coin:0,sky:k==='free'?['#000000','#c8a040']:k==='iron'?['#1a0606','#5a1a1a']:['#1a0a04','#ff6a1a'],fog:k==='free'?0x1a1408:0x1a0a06,gb:.55,deco:k==='colossus'?'lava':k==='iron'?'temple':'hall',hallC:0xffd36b}}
 // 🌍 World Boss Raid — one boss a week, starts Oct 31 (MYT)
-const RAID0=new Date("2026-10-31T00:00:00+08:00").getTime(),RAIDWK=7*864e5,RAIDHP0=500000;
+const RAID0=new Date("2026-10-31T00:00:00+08:00").getTime(),RAIDWK=7*864e5,RAIDHP0=200000000;
 function raidWeek(){return Math.floor((Date.now()-RAID0)/RAIDWK)}
 function raidEnd(w){return RAID0+(w+1)*RAIDWK}
 const RAIDB=[{k:'hk',n:'空壳南瓜王',e:'The Hollow Pumpkin King',i:'👑',boss:'hollow'},{k:'colossus',fr:2},{k:'rift',fr:4},{k:'ender',fr:5},{k:'crimson',fr:1},{k:'faceless',fr:3}];
@@ -9949,12 +9949,12 @@ async function raidWorld(w){const k='w'+w;if(RAIDC[k]&&Date.now()-RAIDC[k].t<45e
   try{const ban=typeof lbBans==='function'?await lbBans():new Set();const snap=await F.getDocs(F.query(F.collection(fb.db,'profiles'),F.orderBy('rd_w'+w,'desc'),F.limit(25)));snap.forEach(d=>{const p=d.data();if(ban.has(d.id)||!(p['rd_w'+w]>0))return;out.top.push({id:d.id,n:p.uname?'@'+p.uname:(p.gname||tr('玩家')),d:p['rd_w'+w]})})}catch(e){}
   RAIDC[k]=out;return out}
 function raidTier(total,hp){const s=total/hp;return s>=.1?{k:'gold',i:'🥇',n:'金牌',c:1500,g:25}:s>=.03?{k:'silver',i:'🥈',n:'银牌',c:800,g:12}:total>0?{k:'bronze',i:'🥉',n:'铜牌',c:300,g:5}:null}
-function raidCD(ms){ms=Math.max(0,ms);const d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4);return (d?d+tr('天')+' ':'')+h+'h '+m+'m'}
+function raidCD(ms){ms=Math.max(0,ms);const d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4);return (d?d+'d ':'')+h+'h '+m+'m'}
 TITLES.push({id:'worldbreak',n:'世界破坏者',how:'和大家一起打倒一个世界首领'},{id:'raidking',n:'首领之王',how:'在世界首领排行榜拿到第一'});
 {const f=titleOK;titleOK=function(id){const C=(save.raid||{}).cl||{};if(id==='worldbreak')return !!C.kill;if(id==='raidking')return !!C.top1;return f(id)}}
 async function showRaid(){enterMenu();const w=raidWeek(),open=raidOpen(),ww=Math.max(0,w),RB=raidBoss(ww),R=raidS(),adm=typeof isAdmin==='function'&&isAdmin(),left=raidLeft();
   overlay.innerHTML=`<div class="panel raidp">${topbar('🌍 '+tr('世界首领'),1)}
-    <div class="raidhero"><div class="raidi">${RB.i}</div><div class="raidt"><small>${w>=0?tr('第 N 周').replace('N',w+1):tr('10 月 31 日开始')} · WORLD BOSS RAID</small><b>${tr(RB.n)}</b><span>${RB.e}</span>
+    <div class="raidhero"><div class="raidi">${RB.i}</div><div class="raidt"><small>${w>=0?tr('第 N 周').replace('N',w+1):tr('10 月 31 日开始')} · WORLD BOSS RAID</small><b>${tr(RB.n)}</b>${tr(RB.n)!==RB.e?`<span>${RB.e}</span>`:''}
       <em>${w>=0?'⏳ '+tr('剩下')+' '+raidCD(raidEnd(w)-Date.now())+' · '+tr('每周换一个首领'):'⏳ '+raidCD(RAID0-Date.now())}</em></div></div>
     <div class="raidhp"><div class="raidbar"><u id="rhpU" style="width:100%"></u></div><div class="raidhl" id="rhpT">${tr('全服血量')}：${fb&&fbUser?tr('读取中…'):tr('登录后可以看到全服进度')}</div></div>
     <div class="raidme"><span>⚔️ ${tr('今天还剩')} <b>${open?left:0}</b>/3</span><span>💥 ${tr('本周总伤害')} <b>${raidFmt(R.total)}</b></span><span>🏆 ${tr('最高一次')} <b>${raidFmt(R.best)}</b></span></div>
@@ -9963,9 +9963,9 @@ async function showRaid(){enterMenu();const w=raidWeek(),open=raidOpen(),ww=Math
     <p class="help">${tr('90 秒内打出越多伤害越好 · 每天 3 次 · 每次都有金币 · 全服一起把血条打空，所有参加的人都有奖励 · 首领每周换一个')}</p>
     <div class="raidcols"><div><h3 class="sh">🏆 ${tr('本周排行榜')}</h3><div id="raidLB" class="raidlb">${fb&&fbUser?'…':`<p class="help">${tr('用 Google 登录才能上排行榜')}</p>`}</div></div>
       <div><h3 class="sh">🎁 ${tr('奖励')}</h3><div class="raidrw">
-        <div>🌍 <b>${tr('全服打倒首领')}</b><span>${tr('所有本周出过战的人')}：🪙 2000 · 💎 30 · ${tr('称号')}「${tr('世界破坏者')}」</span></div>
+        <div>🌍 <b>${tr('全服打倒首领')}</b><span>${tr('所有本周出过战的人')}：🪙 2000 · 💎 30 · ${tr('称号')} 「${tr('世界破坏者')}」</span></div>
         <div>🥇 <b>${tr('金牌')}</b><span>${tr('一个人打出全服血量的 10%')}：🪙 1500 · 💎 25</span></div><div>🥈 <b>${tr('银牌')}</b><span>3%：🪙 800 · 💎 12</span></div><div>🥉 <b>${tr('铜牌')}</b><span>${tr('出战过')}：🪙 300 · 💎 5</span></div>
-        <div>👑 <b>${tr('第一名')}</b><span>${tr('称号')}「${tr('首领之王')}」</span></div></div><div id="raidClaim"></div></div></div>
+        <div>👑 <b>${tr('第一名')}</b><span>${tr('称号')} 「${tr('首领之王')}」</span></div></div><div id="raidClaim"></div></div></div>
     ${adm?`<details class="hadm"><summary>👑 ${tr('管理员')}</summary><div class="row"><input id="raidHpIn" type="number" placeholder="${tr('本周全服血量')}" style="width:160px"><button class="btn" type="button" id="raidHpSet">${tr('设置')}</button></div><p class="help" id="raidAdmMsg"></p></details>`:''}</div>`;
   bindBack();if($('raidGo'))$('raidGo').onclick=()=>{sfx('ult');start3D('raid')};if($('raidAdm'))$('raidAdm').onclick=()=>{window.__RAID=1;sfx('ult');start3D('raid')};
   $('raidShare').onclick=async()=>{const txt=tr('来墨刃纪元一起打世界首领！')+' 🌍 '+tr(RB.n)+' · ';const url='https://inkblade.cronuschores.xyz';try{if(navigator.share){await navigator.share({title:'墨刃纪元 · Ink Blade Era',text:txt,url});return}}catch(e){}try{await navigator.clipboard.writeText(txt+url);passToast('📋 '+tr('已复制，发给朋友吧！'),'#9fe08a')}catch(e){prompt(tr('复制这段发给朋友'),txt+url)}};
