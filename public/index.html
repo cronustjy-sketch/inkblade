@@ -3760,11 +3760,15 @@ function init3D(el,stN){const T=THREE;const ST=stN==='raid'?raidST():(typeof stN
     const sk=new T.SkinnedMesh(geo,mat);sk.frustumCulled=false;sk.scale.setScalar(M.sc);root.scale.setScalar(M.sc);
     const hid=[];const inBlade=o=>{for(let p=o;p;p=p.parent)if(p===M.blade)return true;return false};M.root.traverse(o=>{if(o.isMesh&&!inBlade(o))hid.push(o)});
     M.root.add(root);M.root.add(sk);M.root.updateMatrixWorld(true);sk.bind(new T.Skeleton(bones));
-    if(M.blade){laR.add(M.blade);M.blade.position.set(0,-.4,.1)}
+    if(M.blade){laR.add(M.blade);M.blade.position.set(.04,-.4,.11);M.blade.rotation.set(0,0,0);M.blade.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),new T.Vector3(.62,-.62,.2).normalize())}
     if(M.scarf)for(const q of M.scarf)q.m.material.visible=false;
     M.g3={sk,hid,b:{hip,chest,head,uaR,laR,uaL,laL,ulR,llR,ulL,llL}};heroSync(M)}
   function heroSync(M){const g=M.g3;if(!g)return;const b=g.b;b.hip.position.y=.79+(M.hip.position.y/M.sc-1.05);b.hip.rotation.copy(M.hip.rotation);b.chest.rotation.copy(M.chest.rotation);b.head.rotation.copy(M.head.rotation);
     b.uaR.rotation.copy(M.ua1.rotation);b.laR.rotation.copy(M.la1.rotation);b.uaL.rotation.copy(M.ua2.rotation);b.laL.rotation.copy(M.la2.rotation);b.ulR.rotation.copy(M.ul1.rotation);b.llR.rotation.copy(M.ll1.rotation);b.ulL.rotation.copy(M.ul2.rotation);b.llL.rotation.copy(M.ll2.rotation);
+    const A=P.atk;if(A&&M===PM){const p=Math.min(1,A.t/(A.T||.3)),e=p<.28?p/.28:1-Math.pow(1-(p-.28)/.72,3),k=A.k||'c1';
+      if(k==='c2'){b.chest.rotation.y+=(p<.28?.9*e:.9-1.9*e);b.uaR.rotation.x+=-1.3+ (p<.28?-.3*e:-.3+1.5*e);b.uaR.rotation.z+=1.3;b.laR.rotation.z+=.3}
+      else if(k==='c3'||k==='air'){b.uaR.rotation.z+=(p<.28?2.9*e:2.9-3.5*e);b.laR.rotation.z+=(p<.28?.6*e:.6-.8*e);b.chest.rotation.z+=(p<.28?.15*e:.15-.4*e);b.uaL.rotation.z+=(p<.28?2.4*e:2.4-2.6*e)}
+      else{b.uaR.rotation.z+=(p<.28?2.4*e:2.4-3*e);b.laR.rotation.z+=(p<.28?.5*e:.5-.9*e);b.chest.rotation.y+=(p<.28?-.35*e:-.35+.6*e)}}
     for(const o of g.hid)o.visible=false}
   heroGLB(PM);
   if(GR){const hc=new T.MeshBasicMaterial({color:GR.hc&&GR.hc.startsWith('#')?GR.hc:'#bff0ff'}),H=PM.head,add=(m,x,y,z,rx,rz)=>{m.position.set(x,y,z);if(rx)m.rotation.x=rx;if(rz)m.rotation.z=rz;H.add(m);return m};
