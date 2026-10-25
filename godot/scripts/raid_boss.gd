@@ -191,6 +191,12 @@ func _begin_attack() -> void:
 			await _atk_shockwave()
 		"quake":
 			await _atk_quake()
+		"blink":
+			await _atk_blink()
+		"cross":
+			await _atk_cross()
+		"frenzy":
+			await _atk_frenzy()
 		_:
 			push_warning("raid boss: missing attack " + id)
 			await _wait(0.5)
@@ -375,3 +381,48 @@ func _atk_quake() -> void:
 		_play_fit("slam", _delay(1.1) + 0.5)
 		await _wait(_delay(1.1) + 0.9)
 	await _wait(0.6)
+
+# Vanishes, then reappears on the red circle drawn under the hero and strikes.
+func _atk_blink(warn: float = 0.95) -> void:
+	var center := Vector3(hero.global_position.x, 0.0, hero.global_position.z)
+	var radius: float = 3.3 * _scale_factor
+	var d: float = _delay(warn)
+	var t: Node3D = Telegraph.circle(_world(), center, radius, d, 30.0, hero)
+	_play_fit("swipe", 0.35)
+	await _wait(0.3)
+	if not alive:
+		return
+	_model.visible = false
+	Fx.ring(_world(), global_position, 3.0, Color(0.7, 0.4, 1.0, 0.7), 0.3)
+	t.on_strike = _blink_land.bind(center, radius)
+	await _wait(maxf(d - 0.3, 0.05) + 0.7)
+	_model.visible = alive
+
+func _blink_land(center: Vector3, radius: float) -> void:
+	global_position = Arena.clamp_inside(Vector3(center.x, global_position.y, center.z), Arena.LIMIT - 1.5)
+	_model.visible = true
+	rotation.y = atan2(-(hero.global_position.x - center.x), -(hero.global_position.z - center.z))
+	_play_fit("slam", 0.6)
+	_impact(center, radius)
+
+# Two long lines crossing under the hero.
+func _atk_cross() -> void:
+	_face_hero_now()
+	var center := Vector3(hero.global_position.x, 0.0, hero.global_position.z)
+	var d: float = _delay(1.15)
+	var base: Vector3 = forward()
+	var first: Vector3 = base.rotated(Vector3.UP, deg_to_rad(45.0))
+	var second: Vector3 = base.rotated(Vector3.UP, deg_to_rad(-45.0))
+	for dir: Vector3 in [first, second]:
+		var t: Node3D = Telegraph.line(_world(), center - dir * 9.0, dir, 18.0, 2.4, d, 28.0, hero)
+		t.on_strike = _shake.bind(0.4)
+	_play_fit("swipe", d + 0.4)
+	await _wait(d + 0.7)
+
+# Phase 2: three quick blinks in a row.
+func _atk_frenzy() -> void:
+	for i in 3:
+		if not _ok():
+			break
+		await _atk_blink(0.75)
+	await _wait(0.4)

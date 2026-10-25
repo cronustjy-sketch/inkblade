@@ -22,6 +22,13 @@ const BOSSES: Array[Dictionary] = [
 		"attacks": ["slam", "stomp_rings", "shockwave"], "phase2_attacks": ["quake"],
 		"anims": {"idle": "idle", "walk": "walk", "run": "run", "slash": "slash", "swipe": "swipe", "slam": "slam", "roar": "roar", "hit": "hit"},
 	},
+	{
+		"id": "faceless", "cn": "无面者", "en": "The Faceless One",
+		"model": "res://models/faceless_anim.glb", "scale": 3.0, "yaw": 180.0, "brightness": 2.6,
+		"hp": 3400.0, "speed": 5.2, "hit_radius": 1.8, "hit_height": 4.6, "flying": false,
+		"attacks": ["blink", "cross", "slash"], "phase2_attacks": ["frenzy"],
+		"anims": {"idle": "idle", "walk": "walk", "run": "run", "slash": "slash", "swipe": "swipe", "slam": "slam", "roar": "roar", "hit": "hit"},
+	},
 ]
 
 static func best_time(id: String) -> float:
