@@ -3,7 +3,6 @@ extends CanvasLayer
 signal spawn_requested(key: String)
 signal skill_requested(id: String)
 signal order_requested(order: int)
-@warning_ignore("unused_signal")
 signal ult_requested
 signal retry_requested
 signal next_level_requested
@@ -22,7 +21,7 @@ var _buttons: Dictionary = {}
 var _skill_buttons: Dictionary = {}
 var _order_buttons: Array[Button] = []
 var _ink_bar: ProgressBar
-var _ink_label: Label
+var _ult_button: Button
 var _control_label: Label
 var _boss_box: VBoxContainer
 var _boss_bar: ProgressBar
@@ -71,13 +70,13 @@ func update_skills(hero: Node3D) -> void:
 		b.text = "%s %s\n%s" % [s["key"], s["name_cn"], tail]
 
 func update_ink(value: float, max_value: float) -> void:
-	_ink_label.visible = true
+	_ult_button.visible = true
 	_ink_bar.visible = true
 	_ink_bar.max_value = max_value
 	_ink_bar.value = value
 	var is_full: bool = value >= max_value
-	_ink_label.text = "墨刃·终 Ink Blade Final  [空格 Space]%s" % ("  就绪 READY" if is_full else "")
-	_ink_label.add_theme_color_override("font_color", GOLD if is_full else Color("c9c3b0"))
+	_ult_button.disabled = not is_full
+	_ult_button.text = "墨刃·终 Ink Blade Final [空格 Space]%s" % ("  就绪 READY" if is_full else "")
 
 func set_order(order: int) -> void:
 	for i in _order_buttons.size():
@@ -226,11 +225,10 @@ func _build_side_bars() -> void:
 	skills.position = Vector2(-10, -150)
 	skills.visible = false
 	add_child(skills)
-	_ink_label = Label.new()
-	_ink_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_ink_label.add_theme_font_size_override("font_size", 12)
-	_ink_label.visible = false
-	skills.add_child(_ink_label)
+	_ult_button = _button("墨刃·终 Ink Blade Final", Vector2(300, 30), 12)
+	_ult_button.visible = false
+	_ult_button.pressed.connect(func() -> void: ult_requested.emit())
+	skills.add_child(_ult_button)
 	_ink_bar = ProgressBar.new()
 	_ink_bar.show_percentage = false
 	_ink_bar.custom_minimum_size = Vector2(300, 12)
@@ -265,3 +263,14 @@ func _build_boss_bar() -> void:
 	fill.bg_color = RED
 	_boss_bar.add_theme_stylebox_override("fill", fill)
 	_boss_box.add_child(_boss_bar)
+
+# Full-screen black flash for the ultimate.
+func flash() -> void:
+	var rect := ColorRect.new()
+	rect.color = Color(0.03, 0.03, 0.05, 0.85)
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(rect)
+	var tw: Tween = rect.create_tween()
+	tw.tween_property(rect, "color:a", 0.0, 0.55)
+	tw.tween_callback(rect.queue_free)

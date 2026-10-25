@@ -7,7 +7,8 @@ const ENEMY_CASTLE_X: float = 40.0
 const CAM_HEIGHT: float = 10.0
 const CAM_DISTANCE: float = 28.0
 const CAM_FOLLOW: float = 5.0
-const IMPLEMENTED_SKILLS: Array[String] = ["slash"]
+const IMPLEMENTED_SKILLS: Array[String] = ["slash", "dash", "rally", "rain", "special"]
+const Fx := preload("res://scripts/fx.gd")
 const MAX_ENERGY: float = 200.0
 const ENERGY_REGEN: float = 10.0
 const MAX_POP: int = 50
@@ -31,6 +32,9 @@ var hero: Node3D
 var spawner: Node
 var order: int = UnitData.ORDER_ATTACK
 var controlled: Node3D
+var ink: float = 0.0
+var rally_t: float = 0.0
+var _shake_t: float = 0.0
 var _over: bool = false
 
 func _ready() -> void:
@@ -59,6 +63,7 @@ func _ready() -> void:
 	hud.setup(level, MAX_ENERGY, MAX_POP, _unlocked_skills())
 	hud.skill_requested.connect(_on_skill_requested)
 	hud.order_requested.connect(set_order)
+	hud.ult_requested.connect(cast_ultimate)
 	hud.show_orders()
 	hud.set_order(order)
 	hud.spawn_requested.connect(_on_spawn_requested)
@@ -80,6 +85,9 @@ func _process(delta: float) -> void:
 	hud.update_state(energy, player_pop())
 
 	hud.update_skills(hero)
+	hud.update_ink(ink, UnitData.ULT_MAX)
+	rally_t = maxf(0.0, rally_t - delta)
+	_shake_t = maxf(0.0, _shake_t - delta)
 	_validate_control()
 	hero.move(0.0 if controlled != null else move_axis(), delta)
 
@@ -88,6 +96,8 @@ func _process(delta: float) -> void:
 	var target_x: float = clampf(follow.position.x, PLAYER_CASTLE_X, ENEMY_CASTLE_X)
 	cam_x = lerpf(cam_x, target_x, 1.0 - exp(-CAM_FOLLOW * delta))
 	camera.position = Vector3(cam_x, CAM_HEIGHT, CAM_DISTANCE)
+	if _shake_t > 0.0:
+		camera.position += Vector3(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0), 0.0) * _shake_t * 0.5
 	camera.look_at(Vector3(cam_x, 1.5, 0.0), Vector3.UP)
 
 # -1 / 0 / +1 from the arrow keys or A / D.
@@ -164,6 +174,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_TAB:
 			cycle_control()
 			get_viewport().set_input_as_handled()
+		KEY_SPACE:
+			cast_ultimate()
 		KEY_H:
 			release_control()
 		KEY_1:
@@ -249,3 +261,27 @@ func _pick_unit_at(screen_pos: Vector2) -> void:
 		var hp: Vector2 = camera.unproject_position(hero.global_position + Vector3(0, 1.0, 0))
 		if hp.distance_to(screen_pos) < best_dist:
 			release_control()
+
+# ---------- ink meter and the ultimate (墨刃·终) ----------
+
+func add_ink(amount: float, from_hero: bool = true) -> void:
+	var rate: float = UnitData.INK_PER_DAMAGE_HERO if from_hero else UnitData.INK_PER_DAMAGE_ARMY
+	ink = minf(UnitData.ULT_MAX, ink + amount * rate)
+
+# Screen-wide strike: everything in view takes heavy damage.
+func cast_ultimate() -> bool:
+	if ink < UnitData.ULT_MAX or hero.is_dead() or _over:
+		return false
+	ink = 0.0
+	var half: float = UnitData.ULT_VIEW_HALF_WIDTH
+	for u: Node3D in get_tree().get_nodes_in_group("team_1"):
+		if u.is_queued_for_deletion() or u.inside or absf(u.global_position.x - cam_x) > half:
+			continue
+		u.take_damage(UnitData.ULT_DAMAGE)
+		Fx.slash_wave(self, u.global_position + Vector3(-1.5, 0.0, 0.0), 1.0, 3.0)
+	if absf(enemy_castle.global_position.x - cam_x) <= half + 3.2:
+		enemy_castle.take_damage(UnitData.ULT_CASTLE_DAMAGE)
+	Fx.slash_wave(self, Vector3(cam_x - half, 2.0, 0.0), 1.0, half * 2.0)
+	hud.flash()
+	_shake_t = 0.5
+	return true

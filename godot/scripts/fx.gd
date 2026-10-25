@@ -60,3 +60,22 @@ static func rise(parent: Node3D, pos: Vector3, color: Color) -> void:
 	tw.tween_property(mi, "global_position:y", pos.y + 1.2, 0.6)
 	tw.tween_property(mat, "albedo_color:a", 0.0, 0.6)
 	tw.chain().tween_callback(mi.queue_free)
+
+# Falling swords between x0 and x1 over `duration` seconds (Sword Rain).
+static func sword_rain(parent: Node3D, x0: float, x1: float, duration: float, count: int = 26) -> void:
+	for i in count:
+		var sword := Node3D.new()
+		parent.add_child(sword)
+		Ink.box(sword, Vector3(0.12, 1.3, 0.04), Vector3.ZERO, Color("dfe3e6"), Vector3.ZERO, 0.025)
+		Ink.box(sword, Vector3(0.4, 0.07, 0.06), Vector3(0, 0.6, 0), Color("0d0d0f"), Vector3.ZERO, 0.0)
+		sword.rotation_degrees.z = 180.0
+		sword.visible = false
+		var x: float = randf_range(minf(x0, x1), maxf(x0, x1))
+		var z: float = randf_range(-1.3, 1.3)
+		sword.global_position = Vector3(x, 10.0, z)
+		var tw: Tween = sword.create_tween()
+		tw.tween_interval(randf() * maxf(duration - 0.4, 0.05))
+		tw.tween_callback(sword.set_visible.bind(true))
+		tw.tween_property(sword, "global_position:y", 0.7, 0.35)
+		tw.tween_interval(0.15)
+		tw.tween_callback(sword.queue_free)

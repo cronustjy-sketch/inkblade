@@ -39,6 +39,10 @@ var _model: Node3D
 var _fill: MeshInstance3D
 var _bar: Node3D
 var _current: String = ""
+var _dash_left: float = 0.0
+var _dash_dir: float = 1.0
+var _dash_speed: float = 0.0
+var _dash_hit: Array[Node3D] = []
 
 func setup(p_battle: Node3D, p_level: int) -> void:
 	battle = p_battle
@@ -86,14 +90,15 @@ func _process(delta: float) -> void:
 		if _dead_t < 0.0:
 			_respawn()
 		return
-	_cd_left -= delta
+	_cd_left -= delta * (UnitData.HERO_SKILLS["rally"]["haste"] if battle.rally_t > 0.0 else 1.0)
+	_dash_step(delta)
 	_auto_attack()
 	_update_anim()
 	_moving = false
 
 # Called by battle.gd while the player is steering the hero.
 func move(dir: float, delta: float) -> void:
-	if _dead_t >= 0.0 or dir == 0.0:
+	if _dead_t >= 0.0 or dir == 0.0 or _dash_left > 0.0:
 		return
 	_moving = true
 	facing = signf(dir)
@@ -113,6 +118,14 @@ func cast(id: String) -> bool:
 	match id:
 		"slash":
 			_cast_slash()
+		"dash":
+			_cast_dash()
+		"rally":
+			_cast_rally()
+		"rain":
+			_cast_rain()
+		"special":
+			_cast_vortex()
 		_:
 			return false
 	skill_cd[id] = UnitData.HERO_SKILLS[id]["cooldown"]
@@ -147,6 +160,79 @@ func _cast_slash() -> void:
 		_dealt(s["damage"])
 	Fx.slash_wave(battle, global_position, facing, reach)
 	_play("power", 0.5)
+
+func _cast_dash() -> void:
+	var s: Dictionary = UnitData.HERO_SKILLS["dash"]
+	var duration: float = 0.25
+	_dash_left = duration
+	_dash_dir = facing
+	_dash_speed = s["distance"] / UnitData.PX_PER_M / duration
+	_dash_hit.clear()
+	invincible_t = s["invincible"]
+	_play("roll", 0.35)
+
+func _dash_step(delta: float) -> void:
+	if _dash_left <= 0.0:
+		return
+	_dash_left -= delta
+	position.x = clampf(position.x + _dash_dir * _dash_speed * delta, MIN_X, MAX_X)
+	var dmg: float = UnitData.HERO_SKILLS["dash"]["damage"]
+	for u: Node3D in _enemies():
+		if u in _dash_hit or absf(u.global_position.x - global_position.x) > 1.0:
+			continue
+		_dash_hit.append(u)
+		u.take_damage(dmg)
+		_dealt(dmg)
+
+# Whole army heals and attacks faster for a few seconds.
+func _cast_rally() -> void:
+	var s: Dictionary = UnitData.HERO_SKILLS["rally"]
+	battle.rally_t = s["duration"]
+	for u: Node3D in get_tree().get_nodes_in_group("team_0"):
+		if u.is_queued_for_deletion():
+			continue
+		u.heal(u.max_hp * s["heal"])
+		Fx.rise(battle, u.global_position + Vector3(0, 1.0, 0.3), Color("e8b44a"))
+	Fx.ring(battle, global_position, 12.0, Color("e8b44a"), 0.6)
+	_play("power", 0.6)
+
+# Swords fall on an area in front of the hero for a couple of seconds.
+func _cast_rain() -> void:
+	var s: Dictionary = UnitData.HERO_SKILLS["rain"]
+	var reach: float = s["range"] / UnitData.PX_PER_M
+	var lo: float = minf(global_position.x, global_position.x + facing * reach)
+	var hi: float = maxf(global_position.x, global_position.x + facing * reach)
+	var ticks: int = s["ticks"]
+	Fx.sword_rain(battle, lo, hi, s["duration"])
+	var tw: Tween = create_tween()
+	for i in ticks:
+		tw.tween_callback(_rain_tick.bind(lo, hi, s["damage"]))
+		tw.tween_interval(s["duration"] / ticks)
+	_play("power", 0.6)
+
+func _rain_tick(lo: float, hi: float, dmg: float) -> void:
+	for u: Node3D in _enemies():
+		if u.global_position.x >= lo and u.global_position.x <= hi:
+			u.take_damage(dmg)
+			_dealt(dmg)
+	var castle: Node3D = battle.enemy_castle
+	if castle.hp > 0.0 and castle.global_position.x - CASTLE_HALF_WIDTH <= hi and castle.global_position.x + CASTLE_HALF_WIDTH >= lo:
+		castle.take_damage(dmg)
+		_dealt(dmg)
+
+# Hero's own skill (G): an ink vortex that damages and shoves everything around the hero.
+func _cast_vortex() -> void:
+	var s: Dictionary = UnitData.HERO_SKILLS["special"]
+	var radius: float = s["range"] / UnitData.PX_PER_M
+	for u: Node3D in _enemies():
+		if u.flying or absf(u.global_position.x - global_position.x) > radius:
+			continue
+		u.take_damage(s["damage"])
+		_dealt(s["damage"])
+		if u.has_method("apply_knockback"):
+			u.apply_knockback(s["knockback"], global_position.x)
+	Fx.ring(battle, global_position, radius, Color("0d0d0f"), 0.5)
+	_play("spin", 0.6)
 
 # ---------- combat ----------
 

@@ -17,6 +17,7 @@ func _ready() -> void:
 	await _step5()
 	await _step7()
 	await _step8()
+	await _step9()
 	print("SMOKE DONE failures=%d" % failures)
 	get_tree().quit()
 
@@ -223,4 +224,76 @@ func _step8() -> void:
 	boosted.take_damage(9999.0)
 	await wait(0.1)
 	check("control: released when the unit dies", battle.controlled == null)
+	await clear_units()
+
+func _step9() -> void:
+	_setup_arena()
+	var hero: Node3D = battle.hero
+	hero.set_process(true)
+	hero.level = 20
+	hero._cd_left = 1.0e9 # no auto attacks, so only skill damage is measured
+	hero.position.x = 10.0
+	hero.facing = 1.0
+
+	await clear_units()
+	var near: Node3D = spawn(1, "soldier", 12.0)
+	near.max_hp = 1000.0
+	near.hp = 1000.0
+	check("dash cast succeeds", hero.cast("dash"))
+	hero.take_damage(100.0)
+	check("dash: hero is invincible", hero.hp == hero.max_hp)
+	await wait(0.4)
+	check("dash: moved ~7 m (x=%.2f)" % hero.position.x, absf(hero.position.x - 17.0) < 0.6)
+	check("dash: damaged the enemy passed once (lost %.0f)" % (1000.0 - near.hp), is_equal_approx(1000.0 - near.hp, 40.0))
+
+	await clear_units()
+	hero.position.x = 10.0
+	var ally: Node3D = spawn(0, "soldier", 11.0)
+	ally.hp = 20.0
+	check("rally cast succeeds", hero.cast("rally"))
+	check("rally: heals 30%% of max (hp %.0f)" % ally.hp, is_equal_approx(ally.hp, 38.0))
+	check("rally: attack speed boost is active", ally._haste() > 1.4 and battle.rally_t > 5.0)
+	check("rally: goes on cooldown", not hero.can_cast("rally"))
+
+	await clear_units()
+	hero.position.x = 10.0
+	hero.facing = 1.0
+	var in_area: Node3D = spawn(1, "soldier", 15.0)
+	var out_area: Node3D = spawn(1, "soldier", 22.0)
+	for e: Node3D in [in_area, out_area]:
+		e.max_hp = 1000.0
+		e.hp = 1000.0
+	check("sword rain cast succeeds", hero.cast("rain"))
+	await wait(2.8)
+	var lost: float = 1000.0 - in_area.hp
+	check("sword rain hits the area ~8 ticks x20 (lost %.0f)" % lost, lost >= 140.0 and lost <= 180.0)
+	check("sword rain leaves enemies outside untouched", out_area.hp == 1000.0)
+
+	await clear_units()
+	hero.position.x = 10.0
+	var v1: Node3D = spawn(1, "soldier", 11.5)
+	var v2: Node3D = spawn(1, "soldier", 19.0)
+	v1.max_hp = 1000.0
+	v1.hp = 1000.0
+	check("vortex (G) cast succeeds", hero.cast("special"))
+	await wait(0.3)
+	check("vortex damages and shoves nearby enemies", v1.hp == 950.0 and v1.position.x > 12.0)
+	check("vortex ignores enemies out of range", v2.hp == v2.max_hp)
+
+	await clear_units()
+	battle.ink = 0.0
+	check("ultimate refused while the meter is empty", not battle.cast_ultimate())
+	hero.position.x = 10.0
+	battle.cam_x = 10.0
+	var tgt: Node3D = spawn(1, "soldier", 14.0)
+	var far: Node3D = spawn(1, "soldier", 38.0)
+	for e: Node3D in [tgt, far]:
+		e.max_hp = 1000.0
+		e.hp = 1000.0
+	battle.add_ink(1000.0)
+	check("ink meter fills from damage and caps at 100", is_equal_approx(battle.ink, 100.0))
+	check("ultimate fires when full", battle.cast_ultimate())
+	check("ultimate hits everything on screen for 300 (hp %.0f)" % tgt.hp, is_equal_approx(tgt.hp, 700.0))
+	check("ultimate skips enemies off screen", far.hp == 1000.0)
+	check("ultimate resets the meter", battle.ink == 0.0)
 	await clear_units()

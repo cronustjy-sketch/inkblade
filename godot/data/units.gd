@@ -45,3 +45,9 @@ const ORDER_RETREAT: int = 2
 const DEFEND_LINE_M: float = 7.0
 const RETREAT_HEAL_PER_SEC: float = 0.08
 const CONTROL_DAMAGE_MULT: float = 1.4
+
+# Ink meter: how much each point of damage dealt adds (meter is 0..ULT_MAX).
+const INK_PER_DAMAGE_HERO: float = 0.12
+const INK_PER_DAMAGE_ARMY: float = 0.03
+# The ultimate hits everything within this many meters of the camera centre.
+const ULT_VIEW_HALF_WIDTH: float = 24.0

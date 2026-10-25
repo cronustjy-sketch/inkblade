@@ -75,7 +75,7 @@ func _ready() -> void:
 	add_child(_fill)
 
 func _process(delta: float) -> void:
-	_cd_left -= delta
+	_cd_left -= delta * _haste()
 	_apply_knockback(delta)
 	var is_healer: bool = data.has("heal")
 	var target: Node3D = _nearest_enemy()
@@ -248,6 +248,8 @@ func _try_attack(target: Node3D) -> void:
 		else:
 			knock = 0.0
 	_first_hit = false
+	if team == 0 and battle != null:
+		battle.add_ink(dmg, false)
 	if data.has("projectile"):
 		_shoot(target, dmg)
 	elif data.has("aoe"):
@@ -348,3 +350,9 @@ func _unshaded(color: Color) -> StandardMaterial3D:
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.albedo_color = color
 	return mat
+
+# Rally (hero skill R) speeds up the player army's attacks.
+func _haste() -> float:
+	if team == 0 and battle != null and battle.rally_t > 0.0:
+		return UnitData.HERO_SKILLS["rally"]["haste"]
+	return 1.0
