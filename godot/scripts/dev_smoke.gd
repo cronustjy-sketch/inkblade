@@ -16,6 +16,7 @@ func _ready() -> void:
 	await get_tree().create_timer(0.5).timeout
 	await _step5()
 	await _step7()
+	await _step8()
 	print("SMOKE DONE failures=%d" % failures)
 	get_tree().quit()
 
@@ -159,4 +160,67 @@ func _step7() -> void:
 	await wait(1.6)
 	check("archer can hit a flying dragon", dragon.hp < dragon.max_hp)
 	bow.queue_free()
+	await clear_units()
+
+func _step8() -> void:
+	_setup_arena()
+	const ATTACK := 0
+	const DEFEND := 1
+	const RETREAT := 2
+
+	await clear_units()
+	battle.set_order(DEFEND)
+	var d: Node3D = spawn(0, "soldier", 10.0, false)
+	await wait(3.0)
+	check("defend: unit holds the line ~7 m out (x=%.2f)" % d.position.x, absf(d.position.x - 7.0) < 0.4)
+
+	await clear_units()
+	battle.set_order(RETREAT)
+	var r: Node3D = spawn(0, "soldier", 5.0, false)
+	await wait(2.2)
+	check("retreat: unit goes inside the castle", r.inside and not r._rig.visible)
+	r.hp = 30.0
+	await wait(1.0)
+	check("retreat: heals while inside (hp %.1f)" % r.hp, r.hp > 33.0)
+	var foe: Node3D = spawn(1, "soldier", 3.6, false)
+	var hp_before: float = r.hp
+	await wait(1.2)
+	check("retreat: units inside can't be attacked", r.hp >= hp_before)
+	foe.queue_free()
+	battle.set_order(ATTACK)
+	await wait(0.1)
+	check("attack order: unit comes back out", not r.inside and r._rig.visible)
+
+	await clear_units()
+	battle.set_order(ATTACK)
+	var c: Node3D = spawn(0, "soldier", 10.0, false)
+	var c2: Node3D = spawn(0, "archer", 12.0)
+	battle.control(c)
+	check("control: unit is marked controlled", c.controlled and battle.controlled == c)
+	var x0: float = c.position.x
+	Input.action_press("ui_right")
+	await wait(0.5)
+	Input.action_release("ui_right")
+	check("control: arrow keys move the controlled unit (dx=%.2f)" % (c.position.x - x0), c.position.x - x0 > 0.5)
+	await wait(0.1)
+	var x1: float = c2.position.x
+	check("control: other units are not moved by the keys", is_equal_approx(c2.position.x, x1))
+	battle.cycle_control()
+	check("control: Tab cycles to the next soldier", battle.controlled == c2)
+	battle.cycle_control()
+	check("control: Tab wraps around", battle.controlled == c)
+	battle.release_control()
+	check("control: H returns to the hero", battle.controlled == null and not c.controlled)
+
+	await clear_units()
+	var boosted: Node3D = spawn(0, "soldier", 10.0)
+	var dummy: Node3D = spawn(1, "soldier", 10.5)
+	dummy.max_hp = 1000.0
+	dummy.hp = 1000.0
+	battle.control(boosted)
+	await wait(0.2)
+	check("control: +40%% damage (lost %.1f)" % (1000.0 - dummy.hp), is_equal_approx(1000.0 - dummy.hp, 14.0))
+	boosted.take_damage(9999.0)
+	await wait(0.1)
+	check("control: released when the unit dies", battle.controlled == null)
 	await clear_units()

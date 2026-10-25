@@ -26,6 +26,10 @@ var armor: float = 0.0
 var blocks_arrows: bool = false
 
 var enemy_castle: Node3D
+var battle: Node3D # set for player units; enemies ignore orders
+var controlled: bool = false
+var _facing_right: bool = true
+var _marker: Node3D
 var _cd_left: float = 0.0
 var _dir: float = 1.0
 var _fill: MeshInstance3D
@@ -76,19 +80,122 @@ func _process(delta: float) -> void:
 	var is_healer: bool = data.has("heal")
 	var target: Node3D = _nearest_enemy()
 	var enemy_in_range: bool = target != null and _x_gap(target.global_position.x) <= attack_range
-	if is_healer:
+	if is_healer and not inside:
 		_try_heal()
+	if team == 0 and battle != null and _follow_orders(delta, target, enemy_in_range):
+		return
 	var moving: bool = false
 	if enemy_in_range:
+		_face(target.global_position.x - global_position.x)
 		if not is_healer:
 			_try_attack(target)
 	elif enemy_castle != null and _castle_gap() <= attack_range:
 		if not is_healer:
 			_try_attack(enemy_castle)
 	else:
+		_face(_dir)
 		global_position.x += _dir * speed * delta
 		moving = true
 	_rig.set_moving(moving)
+
+# ---------- orders and take-control (player units only) ----------
+
+# Returns true when the order fully handled this frame; false means "act normally" (Attack).
+func _follow_orders(delta: float, target: Node3D, enemy_in_range: bool) -> bool:
+	var castle: Node3D = battle.player_castle
+	if controlled:
+		_controlled_step(delta, target, enemy_in_range)
+		return true
+	var order: int = battle.order
+	if order == UnitData.ORDER_RETREAT:
+		_retreat_step(delta, castle)
+		return true
+	if inside:
+		_set_inside(false)
+	if order == UnitData.ORDER_DEFEND:
+		_defend_step(delta, castle, target, enemy_in_range)
+		return true
+	return false
+
+func _retreat_step(delta: float, castle: Node3D) -> void:
+	var gate_x: float = castle.global_position.x + CASTLE_HALF_WIDTH
+	if inside:
+		heal(max_hp * UnitData.RETREAT_HEAL_PER_SEC * delta)
+		return
+	if global_position.x <= gate_x:
+		_set_inside(true)
+		return
+	_face(-1.0)
+	global_position.x -= speed * delta
+	_rig.set_moving(true)
+
+func _defend_step(delta: float, castle: Node3D, target: Node3D, enemy_in_range: bool) -> void:
+	if enemy_in_range:
+		_face(target.global_position.x - global_position.x)
+		if not data.has("heal"):
+			_try_attack(target)
+		_rig.set_moving(false)
+		return
+	var line_x: float = castle.global_position.x + UnitData.DEFEND_LINE_M
+	var off: float = line_x - global_position.x
+	if absf(off) > 0.25:
+		_face(off)
+		global_position.x += signf(off) * minf(speed * delta, absf(off))
+		_rig.set_moving(true)
+	else:
+		_face(1.0)
+		_rig.set_moving(false)
+
+func _controlled_step(delta: float, target: Node3D, enemy_in_range: bool) -> void:
+	var axis: float = battle.move_axis()
+	if axis != 0.0:
+		_face(axis)
+		var left: float = battle.player_castle.global_position.x + CASTLE_HALF_WIDTH + 0.3
+		var right: float = enemy_castle.global_position.x - CASTLE_HALF_WIDTH - 0.3
+		global_position.x = clampf(global_position.x + axis * speed * delta, left, right)
+	_rig.set_moving(axis != 0.0)
+	if enemy_in_range:
+		if axis == 0.0:
+			_face(target.global_position.x - global_position.x)
+		if not data.has("heal"):
+			_try_attack(target)
+	elif _castle_gap() <= attack_range and not data.has("heal"):
+		if axis == 0.0:
+			_face(enemy_castle.global_position.x - global_position.x)
+		_try_attack(enemy_castle)
+
+func _set_inside(value: bool) -> void:
+	inside = value
+	_rig.visible = not value
+	_fill.visible = not value
+	_rig.set_moving(false)
+
+func set_controlled(value: bool) -> void:
+	controlled = value
+	if value and _marker == null:
+		_marker = Node3D.new()
+		_marker.position.y = _rig.height + 0.75
+		add_child(_marker)
+		var cone := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = 0.22
+		mesh.bottom_radius = 0.0
+		mesh.height = 0.4
+		mesh.radial_segments = 4
+		cone.mesh = mesh
+		cone.material_override = _unshaded(Color("e8b44a"))
+		_marker.add_child(cone)
+	elif not value and _marker != null:
+		_marker.queue_free()
+		_marker = null
+
+func _face(dx: float) -> void:
+	if dx == 0.0:
+		return
+	var right: bool = dx > 0.0
+	if right != _facing_right:
+		_facing_right = right
+		_rig.set_facing(right)
 
 func take_damage(amount: float) -> void:
 	hp -= amount * (1.0 - armor)
@@ -127,7 +234,7 @@ func _try_attack(target: Node3D) -> void:
 	_cd_left = cooldown
 	_rig.play_attack(cooldown)
 	var is_castle: bool = target == enemy_castle
-	var dmg: float = atk
+	var dmg: float = atk * (UnitData.CONTROL_DAMAGE_MULT if controlled else 1.0)
 	if data.has("crit_chance") and randf() < data["crit_chance"]:
 		dmg *= data["crit_mult"]
 	if is_castle and data.has("castle_mult"):

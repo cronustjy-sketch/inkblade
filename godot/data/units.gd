@@ -37,3 +37,11 @@ const HERO_SKILLS: Dictionary = {
 const ULT_MAX: float = 100.0
 const ULT_DAMAGE: float = 300.0
 const ULT_CASTLE_DAMAGE: float = 120.0
+
+# Orders for the player's army, and take-control tuning.
+const ORDER_ATTACK: int = 0
+const ORDER_DEFEND: int = 1
+const ORDER_RETREAT: int = 2
+const DEFEND_LINE_M: float = 7.0
+const RETREAT_HEAL_PER_SEC: float = 0.08
+const CONTROL_DAMAGE_MULT: float = 1.4

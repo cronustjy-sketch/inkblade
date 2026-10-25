@@ -41,6 +41,7 @@ var _parts: Array[Node3D] = []
 var _pose_r: float = 0.5
 var _pose_l: float = 0.3
 var _wind: float = 2.4
+var _face: float = 1.0
 var _moving: bool = false
 var _phase: float = 0.0
 var _clock: float = 0.0
@@ -52,6 +53,7 @@ func setup(p_key: String, p_team: int, speed_mps: float) -> void:
 	team = p_team
 	gait = 4.2 * speed_mps if speed_mps > 0.0 else 4.0
 	_holder = Node3D.new()
+	_face = 1.0 if team == 0 else -1.0
 	_holder.rotation_degrees.y = 0.0 if team == 0 else 180.0
 	add_child(_holder)
 	match key:
@@ -119,7 +121,7 @@ func _anim_human(legs: bool = true) -> void:
 	if _attack_t >= 0.0:
 		_arm_r.rotation.z = _attack_angle()
 		if legs:
-			_holder.position.x = sin(_attack_u() * PI) * 0.2 * (1.0 if team == 0 else -1.0)
+			_holder.position.x = sin(_attack_u() * PI) * 0.2 * _face
 	elif legs:
 		_holder.position.x = 0.0
 
@@ -381,3 +383,7 @@ func _build_dragon() -> void:
 	_part(_holder, Shape.CONE, Vector3(0.5, 2.0, 0.5), Vector3(-1.7, -0.1, 0), PARCH, Vector3(0, 0, 90), 0.04)
 	_part(_holder, Shape.BOX, Vector3(1.4, 0.1, 0.1), Vector3(0, 0.45, 0), color)
 	_holder.position.y = 2.3
+
+func set_facing(right: bool) -> void:
+	_face = 1.0 if right else -1.0
+	_holder.rotation_degrees.y = 0.0 if right else 180.0
