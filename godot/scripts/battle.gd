@@ -5,9 +5,19 @@ const BossData := preload("res://data/bosses.gd")
 const UnitData := preload("res://data/units.gd")
 const PLAYER_CASTLE_X: float = 0.0
 const ENEMY_CASTLE_X: float = 40.0
-const CAM_HEIGHT: float = 10.0
-const CAM_DISTANCE: float = 28.0
+const CAM_HEIGHT: float = 4.6
+const CAM_DISTANCE: float = 12.5
 const CAM_FOLLOW: float = 5.0
+const CAM_LOOK_Y: float = 1.5
+const CAM_MIN_X: float = 8.0
+const CAM_MAX_X: float = 32.0
+const ZOOM_MIN: float = 0.55 # hero close-up
+const ZOOM_MAX: float = 3.0 # the whole lane
+const ZOOM_STEP: float = 1.12
+const TILT_MIN: float = -0.15
+const TILT_MAX: float = 0.7
+const TILT_SPEED: float = 0.004
+const CASTLE_Z: float = -2.5
 const IMPLEMENTED_SKILLS: Array[String] = ["slash", "dash", "rally", "rain", "special"]
 const Fx := preload("res://scripts/fx.gd")
 const MAX_ENERGY: float = 200.0
@@ -18,8 +28,10 @@ const HUD_SCENE: PackedScene = preload("res://scenes/hud.tscn")
 const SPAWNER_SCRIPT: GDScript = preload("res://scripts/spawner.gd")
 const HERO_SCENE: PackedScene = preload("res://scenes/hero.tscn")
 const DECOR_SCRIPT: GDScript = preload("res://scripts/decor.gd")
+const BACKDROP_SCRIPT: GDScript = preload("res://scripts/backdrop.gd")
+const AUTOSHOT_SCRIPT: GDScript = preload("res://scripts/autoshot.gd")
 const MAP_SCENE: String = "res://scenes/map.tscn"
-const LAVA_SKY := Color("dcb99a")
+const LAVA_SKY := Color("e39a63")
 
 @export var start_level: int = 1
 
@@ -40,16 +52,28 @@ var rally_t: float = 0.0
 var _shake_t: float = 0.0
 var boss: Node3D
 var _boss_alive: bool = false
+var zoom: float = 1.0 # current camera zoom (smoothed)
+var zoom_target: float = 1.0
+var tilt: float = 0.0 # extra camera height as a fraction of the distance
+var _tilt_drag: bool = false
+var _touches: Dictionary = {}
 var _over: bool = false
 
 func _ready() -> void:
 	# Retry / Next level reload this scene, so the level lives in a static var.
+	var env_level: String = OS.get_environment("INK_LEVEL")
+	if env_level != "" and OS.is_debug_build():
+		Levels.current_level = clampi(int(env_level), 1, Levels.MAX_LEVEL)
 	if Levels.current_level == 0:
 		Levels.current_level = start_level
 	level = Levels.current_level
+	if OS.is_debug_build() and OS.get_environment("INK_ZOOM") != "":
+		set_zoom(float(OS.get_environment("INK_ZOOM")))
+		zoom = zoom_target
+	tilt = float(OS.get_environment("INK_TILT")) if OS.is_debug_build() else 0.0
 
-	player_castle.position.x = PLAYER_CASTLE_X
-	enemy_castle.position.x = ENEMY_CASTLE_X
+	player_castle.position = Vector3(PLAYER_CASTLE_X, 0.0, CASTLE_Z)
+	enemy_castle.position = Vector3(ENEMY_CASTLE_X, 0.0, CASTLE_Z)
 	# Castles set hp from max_hp in their own _ready, which already ran.
 	player_castle.max_hp = 500.0
 	player_castle.hp = 500.0
@@ -62,6 +86,13 @@ func _ready() -> void:
 	decor.set_script(DECOR_SCRIPT)
 	add_child(decor)
 	decor.build($Ground, ENEMY_CASTLE_X, Levels.is_lava(level))
+	var backdrop: Node3D = Node3D.new()
+	backdrop.set_script(BACKDROP_SCRIPT)
+	add_child(backdrop)
+	backdrop.build(Levels.is_lava(level), ENEMY_CASTLE_X * 0.5)
+	# The ground runs on far behind the lane so the backdrop mountains stand on it.
+	($Ground.mesh as BoxMesh).size = Vector3(500.0, 0.4, 200.0)
+	$Ground.position = Vector3(ENEMY_CASTLE_X * 0.5, -0.2, -90.0)
 	if Levels.is_lava(level):
 		$WorldEnvironment.environment.background_color = LAVA_SKY
 	if BossData.has_boss(level):
@@ -90,11 +121,17 @@ func _ready() -> void:
 	add_child(spawner)
 	spawner.setup(self, level)
 
+	if OS.is_debug_build():
+		var shot: Node = AUTOSHOT_SCRIPT.new()
+		add_child(shot)
+		shot.setup(self)
+
 func _process(delta: float) -> void:
 	energy = minf(MAX_ENERGY, energy + ENERGY_REGEN * delta)
 	hud.update_state(energy, player_pop())
 
 	hud.update_skills(hero)
+	hud.update_castles(player_castle.hp, player_castle.max_hp, enemy_castle.hp, enemy_castle.max_hp)
 	hud.update_ink(ink, UnitData.ULT_MAX)
 	_track_boss()
 	rally_t = maxf(0.0, rally_t - delta)
@@ -104,12 +141,18 @@ func _process(delta: float) -> void:
 
 	# Camera follows the hero, clamped between the castles.
 	var follow: Node3D = controlled if controlled != null else hero
-	var target_x: float = clampf(follow.position.x, PLAYER_CASTLE_X, ENEMY_CASTLE_X)
+	# Zoomed out, the camera settles on the middle of the lane instead of following into the castles.
+	zoom = lerpf(zoom, zoom_target, 1.0 - exp(-10.0 * delta))
+	var spread: float = clampf((zoom - 1.0) / 1.7, 0.0, 1.0)
+	var mid_x: float = ENEMY_CASTLE_X * 0.5
+	var target_x: float = clampf(follow.position.x, lerpf(CAM_MIN_X, mid_x, spread), lerpf(CAM_MAX_X, mid_x, spread))
 	cam_x = lerpf(cam_x, target_x, 1.0 - exp(-CAM_FOLLOW * delta))
-	camera.position = Vector3(cam_x, CAM_HEIGHT, CAM_DISTANCE)
+	var dist: float = CAM_DISTANCE * zoom
+	var cam_height: float = lerpf(1.6, CAM_HEIGHT, pow(zoom, 0.85)) + tilt * dist
+	camera.position = Vector3(cam_x, cam_height, dist)
 	if _shake_t > 0.0:
 		camera.position += Vector3(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0), 0.0) * _shake_t * 0.5
-	camera.look_at(Vector3(cam_x, 1.5, 0.0), Vector3.UP)
+	camera.look_at(Vector3(cam_x, CAM_LOOK_Y, 0.0), Vector3.UP)
 
 # -1 / 0 / +1 from the arrow keys or A / D.
 func move_axis() -> float:
@@ -191,6 +234,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			cast_ultimate()
 		KEY_H:
 			release_control()
+		KEY_C:
+			reset_camera()
 		KEY_1:
 			set_order(UnitData.ORDER_ATTACK)
 		KEY_2:
@@ -255,8 +300,49 @@ func cycle_control() -> void:
 	control(list[(idx + 1) % list.size()])
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_pick_unit_at(event.position)
+	if OS.is_debug_build() and OS.get_environment("INK_AUTOSHOT") != "":
+		return # screenshot runs ignore stray mouse input
+	if event is InputEventMouseButton:
+		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_pick_unit_at(event.position)
+		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			set_zoom(zoom_target / ZOOM_STEP)
+		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			set_zoom(zoom_target * ZOOM_STEP)
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			_tilt_drag = event.pressed
+	elif event is InputEventMouseMotion and _tilt_drag:
+		tilt = clampf(tilt + event.relative.y * TILT_SPEED, TILT_MIN, TILT_MAX)
+	elif event is InputEventMagnifyGesture:
+		set_zoom(zoom_target / event.factor)
+	elif event is InputEventScreenTouch:
+		if event.pressed:
+			_touches[event.index] = event.position
+		else:
+			_touches.erase(event.index)
+	elif event is InputEventScreenDrag:
+		_pinch(event)
+
+func set_zoom(value: float) -> void:
+	zoom_target = clampf(value, ZOOM_MIN, ZOOM_MAX)
+
+func reset_camera() -> void:
+	zoom_target = 1.0
+	tilt = 0.0
+
+# Two-finger pinch on a touch screen: spreading the fingers zooms in.
+func _pinch(event: InputEventScreenDrag) -> void:
+	if not _touches.has(event.index):
+		return
+	var before: float = 0.0
+	if _touches.size() == 2:
+		var pts: Array = _touches.values()
+		before = (pts[0] as Vector2).distance_to(pts[1])
+	_touches[event.index] = event.position
+	if _touches.size() == 2 and before > 1.0:
+		var pts: Array = _touches.values()
+		var after: float = (pts[0] as Vector2).distance_to(pts[1])
+		set_zoom(zoom_target * before / maxf(after, 1.0))
 
 # Picks the soldier whose on-screen body is nearest to the click.
 func _pick_unit_at(screen_pos: Vector2) -> void:

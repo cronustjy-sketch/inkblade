@@ -5,9 +5,13 @@ extends Node3D
 
 const UnitData := preload("res://data/units.gd")
 const Fx := preload("res://scripts/fx.gd")
+const Ink := preload("res://scripts/ink.gd")
+const GOLD := Color("e8b44a")
+const SCARF_POINTS: int = 14
+const SCARF_NECK_Y: float = 2.3
 const MODEL: PackedScene = preload("res://models/hero_anim.glb")
 const LOOPING: Array[String] = ["idle", "run"]
-const HERO_SCALE: float = 1.15
+const HERO_SCALE: float = 1.65
 const CASTLE_HALF_WIDTH: float = 3.2
 const MIN_X: float = 3.8
 const MAX_X: float = 36.2
@@ -39,6 +43,9 @@ var _model: Node3D
 var _fill: MeshInstance3D
 var _bar: Node3D
 var _current: String = ""
+var _scarf_fill: MeshInstance3D
+var _scarf_outline: MeshInstance3D
+var _scarf_t: float = 0.0
 var _dash_left: float = 0.0
 var _dash_dir: float = 1.0
 var _dash_speed: float = 0.0
@@ -72,8 +79,9 @@ func _ready() -> void:
 				_anim.get_animation(anim_name).loop_mode = Animation.LOOP_LINEAR
 		_play("idle")
 
+	_build_aura()
 	_bar = Node3D.new()
-	_bar.position.y = 2.5
+	_bar.position.y = 2.95
 	add_child(_bar)
 	var back := _bar_quad(Vector2(1.0, 0.14), Color("0d0d0f"), 0.0)
 	_bar.add_child(back)
@@ -90,6 +98,7 @@ func _process(delta: float) -> void:
 		if _dead_t < 0.0:
 			_respawn()
 		return
+	_update_scarf(delta)
 	_cd_left -= delta * (UnitData.HERO_SKILLS["rally"]["haste"] if battle.rally_t > 0.0 else 1.0)
 	_dash_step(delta)
 	_auto_attack()
@@ -345,3 +354,88 @@ func heal(amount: float) -> void:
 
 func is_big() -> bool:
 	return false
+
+# ---------- "this is mine" markers: gold glow, ground ring and a flowing gold scarf ----------
+
+func _build_aura() -> void:
+	# Soft gold glow behind the hero (additive, always upright to the camera).
+	var grad := Gradient.new()
+	grad.colors = PackedColorArray([Color(GOLD, 0.65), Color(GOLD, 0.0)])
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 128
+	tex.height = 128
+	var glow := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2(4.2, 4.6)
+	glow.mesh = quad
+	var gmat := _additive(tex, Color.WHITE)
+	gmat.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+	glow.material_override = gmat
+	glow.position = Vector3(0.0, 1.5, -0.35)
+	add_child(glow)
+	# Ring on the ground under the feet.
+	var ring := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.95
+	disc.bottom_radius = 0.95
+	disc.height = 0.02
+	disc.radial_segments = 24
+	ring.mesh = disc
+	ring.material_override = _additive(null, Color(GOLD, 0.35))
+	ring.scale = Vector3(1.0, 1.0, 0.45)
+	ring.position.y = 0.04
+	add_child(ring)
+	# Scarf: a tapered gold ribbon (with a black ink outline) streaming behind the neck.
+	_scarf_outline = MeshInstance3D.new()
+	_scarf_outline.mesh = ImmediateMesh.new()
+	_scarf_outline.material_override = _flat_mat(Ink.INK)
+	add_child(_scarf_outline)
+	_scarf_fill = MeshInstance3D.new()
+	_scarf_fill.mesh = ImmediateMesh.new()
+	_scarf_fill.material_override = _flat_mat(GOLD)
+	add_child(_scarf_fill)
+	_update_scarf(0.0)
+
+func _additive(tex: Texture2D, color: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.albedo_color = color
+	if tex != null:
+		mat.albedo_texture = tex
+	return mat
+
+func _flat_mat(color: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.albedo_color = color
+	return mat
+
+# The scarf streams backwards (opposite to the facing) and ripples; it lifts more while running.
+func _update_scarf(delta: float) -> void:
+	if _scarf_fill == null:
+		return
+	_scarf_t += delta * (9.0 if _moving else 4.0)
+	var lift: float = 0.35 if _moving else 0.12
+	_draw_ribbon(_scarf_outline.mesh as ImmediateMesh, 0.045, -0.01, lift)
+	_draw_ribbon(_scarf_fill.mesh as ImmediateMesh, 0.0, 0.0, lift)
+
+func _draw_ribbon(mesh: ImmediateMesh, extra: float, z: float, lift: float) -> void:
+	mesh.clear_surfaces()
+	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	var n: int = SCARF_POINTS
+	for i in n:
+		var f: float = float(i) / float(n - 1)
+		var x: float = -0.1 - f * 1.5
+		var y: float = SCARF_NECK_Y + lift * f - 0.35 * f * f + sin(_scarf_t - f * 5.0) * 0.12 * f
+		var half: float = (0.13 * (1.0 - f * 0.65)) + extra
+		mesh.surface_add_vertex(Vector3(x, y + half, z))
+		mesh.surface_add_vertex(Vector3(x, y - half, z))
+	mesh.surface_end()

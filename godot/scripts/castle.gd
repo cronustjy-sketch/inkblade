@@ -10,6 +10,8 @@ const COLOR_PLAYER := Color("e8b44a")
 const COLOR_ENEMY := Color("de4b3f")
 const PARCHMENT := Color("efe6cf")
 const DOOR := Color("2b2118")
+const SPRITE_WIDTH: float = 8.6 # width of the Codex castle illustration in meters
+const SPRITE_HEIGHT: float = 5.3 # 8.6 m wide x 944/1526 aspect
 
 @export var team: Team = Team.PLAYER
 @export var max_hp: float = 500.0
@@ -23,11 +25,18 @@ func _ready() -> void:
 	hp = max_hp
 	var color: Color = COLOR_PLAYER if team == Team.PLAYER else COLOR_ENEMY
 	var toward_enemy: float = 1.0 if team == Team.PLAYER else -1.0
-	_build_castle(color, toward_enemy)
+	var sprite_path: String = "res://sprites/prop_castle_%s.png" % ("gold" if team == Team.PLAYER else "red")
+	var has_sprite: bool = ResourceLoader.exists(sprite_path)
+	if has_sprite:
+		_build_sprite(sprite_path)
+	else:
+		_build_castle(color, toward_enemy)
 
 	var bar_root := Node3D.new()
-	bar_root.position = Vector3(0, 11.0, 0)
+	bar_root.position = Vector3(0, SPRITE_HEIGHT + 0.6 if has_sprite else 11.0, 0)
 	add_child(bar_root)
+	# The HUD shows castle HP at the top of the screen; the floating bar is only for the primitive fallback castle.
+	bar_root.visible = not has_sprite
 	bar_root.add_child(_bar_quad(Vector2(BAR_WIDTH + 0.2, 0.7), Ink.INK, 0.0))
 	bar_root.add_child(_bar_quad(Vector2(BAR_WIDTH, 0.5), Color("3a3f48"), 0.01))
 	_fill = _bar_quad(Vector2(BAR_WIDTH, 0.5), color, 0.02)
@@ -108,3 +117,17 @@ func set_invulnerable(value: bool) -> void:
 		add_child(_ward)
 	if _ward != null:
 		_ward.visible = value
+
+# Castle drawn as an ink illustration (generated art, baked by tools/bake_sprites.gd): an upright sprite on the lane.
+func _build_sprite(path: String) -> void:
+	var tex: Texture2D = load(path)
+	var sprite := Sprite3D.new()
+	sprite.texture = tex
+	sprite.pixel_size = SPRITE_WIDTH / float(tex.get_width())
+	sprite.offset = Vector2(0.0, tex.get_height() * 0.5)
+	sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	sprite.shaded = false
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sprite.alpha_scissor_threshold = 0.5
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	add_child(sprite)
