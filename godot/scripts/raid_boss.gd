@@ -185,6 +185,12 @@ func _begin_attack() -> void:
 			await _atk_charge()
 		"whirl":
 			await _atk_whirl()
+		"stomp_rings":
+			await _atk_stomp_rings()
+		"shockwave":
+			await _atk_shockwave()
+		"quake":
+			await _atk_quake()
 		_:
 			push_warning("raid boss: missing attack " + id)
 			await _wait(0.5)
@@ -334,3 +340,38 @@ func _atk_whirl() -> void:
 		var spin: Tween = create_tween()
 		spin.tween_property(_model, "rotation:y", _model.rotation.y + TAU, 0.5)
 	await _wait(0.9)
+
+# Three stomps, each landing where the hero stood when it started.
+func _atk_stomp_rings() -> void:
+	for i in 3:
+		if not _ok():
+			break
+		_face_hero_now()
+		var center := Vector3(hero.global_position.x, 0.0, hero.global_position.z)
+		var radius: float = 2.9 * _scale_factor
+		var t: Node3D = Telegraph.circle(_world(), center, radius, _delay(0.9), 22.0, hero)
+		t.on_strike = _impact.bind(center, radius)
+		_play_fit("slam", 0.75)
+		await _wait(0.68)
+	await _wait(0.9)
+
+# A shockwave that rolls out across the arena; roll through it (invincible) or keep clear of the ring.
+func _atk_shockwave() -> void:
+	var d: float = _delay(1.3)
+	var t: Node3D = Telegraph.ring(_world(), global_position, 15.0, d, 30.0, hero)
+	t.wave_time = 0.9
+	t.on_strike = _shake.bind(0.7)
+	_play_fit("slam", d + 0.6)
+	await _wait(d + 1.3)
+
+# Phase 2: two shockwaves back to back.
+func _atk_quake() -> void:
+	for i in 2:
+		if not _ok():
+			break
+		var t: Node3D = Telegraph.ring(_world(), global_position, 17.0, _delay(1.1), 30.0, hero)
+		t.wave_time = 0.8
+		t.on_strike = _shake.bind(0.8)
+		_play_fit("slam", _delay(1.1) + 0.5)
+		await _wait(_delay(1.1) + 0.9)
+	await _wait(0.6)

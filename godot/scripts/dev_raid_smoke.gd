@@ -33,7 +33,7 @@ func _new_raid(training: bool, boss_env: int = 0) -> void:
 	await wait(0.5)
 
 func _extra_bosses() -> void:
-	pass
+	await _boss_flow(1)
 
 func check(label: String, ok: bool) -> void:
 	if not ok:
@@ -150,6 +150,9 @@ func _part2() -> void:
 func _boss_flow(index: int) -> void:
 	var hero: CharacterBody3D = raid.hero
 	var cfg: Dictionary = RaidData.BOSSES[index]
+	if index != raid.boss_index:
+		raid._start_fight(index)
+		await wait(0.2)
 	check("[%s] boss exists and the HUD shows it" % cfg["id"], raid.boss != null and raid.boss.max_hp == cfg["hp"])
 	check("[%s] the fight starts in a countdown (controls off)" % cfg["id"], raid.state == raid.State.COUNTDOWN and not hero.controls_enabled and not raid.boss.active)
 	await wait(3.9)

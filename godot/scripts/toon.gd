@@ -8,7 +8,7 @@ const INK := Color(0.04, 0.04, 0.07)
 
 const TOON_SHADER: String = """
 shader_type spatial;
-render_mode unshaded, cull_back;
+render_mode unshaded, cull_disabled;
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform vec4 albedo : source_color = vec4(1.0);
 uniform bool use_tex = false;

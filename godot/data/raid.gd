@@ -15,6 +15,13 @@ const BOSSES: Array[Dictionary] = [
 		"attacks": ["slash", "slam", "charge"], "phase2_attacks": ["whirl"],
 		"anims": {"idle": "idle", "walk": "walk", "run": "run", "slash": "slash", "swipe": "swipe", "slam": "slam", "roar": "roar", "hit": "hit"},
 	},
+	{
+		"id": "colossus", "cn": "岩石巨像", "en": "Stone Colossus",
+		"model": "res://models/colossus_anim.glb", "scale": 3.4, "yaw": 180.0, "brightness": 2.6,
+		"hp": 2600.0, "speed": 3.4, "hit_radius": 2.9, "hit_height": 5.4, "flying": false,
+		"attacks": ["slam", "stomp_rings", "shockwave"], "phase2_attacks": ["quake"],
+		"anims": {"idle": "idle", "walk": "walk", "run": "run", "slash": "slash", "swipe": "swipe", "slam": "slam", "roar": "roar", "hit": "hit"},
+	},
 ]
 
 static func best_time(id: String) -> float:

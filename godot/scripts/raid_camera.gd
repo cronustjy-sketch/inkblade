@@ -13,7 +13,7 @@ const FOLLOW: float = 12.0
 var target: Node3D
 var yaw: float = 0.0
 var pitch: float = deg_to_rad(22.0)
-var distance: float = 8.5
+var distance: float = 10.5
 var camera: Camera3D
 var shake: float = 0.0
 var _touches: Dictionary = {}
