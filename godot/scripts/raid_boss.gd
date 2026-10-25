@@ -197,6 +197,14 @@ func _begin_attack() -> void:
 			await _atk_cross()
 		"frenzy":
 			await _atk_frenzy()
+		"meteors":
+			await _atk_meteors()
+		"beam":
+			await _atk_beam()
+		"void_pulse":
+			await _atk_void_pulse()
+		"barrage":
+			await _atk_barrage()
 		_:
 			push_warning("raid boss: missing attack " + id)
 			await _wait(0.5)
@@ -426,3 +434,73 @@ func _atk_frenzy() -> void:
 			break
 		await _atk_blink(0.75)
 	await _wait(0.4)
+
+# A falling rock that lands exactly when the circle on the ground fills up.
+func _meteor(center: Vector3, radius: float, warn: float, damage: float) -> void:
+	var t: Node3D = Telegraph.circle(_world(), center, radius, warn, damage, hero)
+	var rock := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = radius * 0.35
+	sphere.height = radius * 0.7
+	sphere.radial_segments = 12
+	sphere.rings = 6
+	rock.mesh = sphere
+	rock.material_override = Toon.flat(Color("5a3a8a"), 0.08)
+	_world().add_child(rock)
+	rock.global_position = Vector3(center.x, 18.0, center.z)
+	var tw: Tween = rock.create_tween()
+	tw.tween_property(rock, "global_position:y", radius * 0.3, warn).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(rock.queue_free)
+	t.on_strike = _impact.bind(center, radius)
+
+func _atk_meteors(count: int = 7) -> void:
+	_face_hero_now()
+	_play_fit("roar", 1.0)
+	await _wait(0.4)
+	var radius: float = 2.4
+	for i in count:
+		if not _ok():
+			break
+		var spot := Vector3(hero.global_position.x, 0.0, hero.global_position.z)
+		if i > 0:
+			spot += Vector3(randf_range(-9.0, 9.0), 0.0, randf_range(-9.0, 9.0))
+		spot = Arena.clamp_inside(spot, Arena.LIMIT - 2.0)
+		_meteor(spot, radius, _delay(1.25), 24.0)
+		await _wait(0.24)
+	await _wait(_delay(1.25) + 0.3)
+
+func _atk_beam(angle_offset: float = 0.0, with_wait: bool = true) -> void:
+	_face_hero_now()
+	var d: float = _delay(1.3)
+	var dir: Vector3 = forward().rotated(Vector3.UP, deg_to_rad(angle_offset))
+	var from: Vector3 = global_position + dir * 1.5
+	var t: Node3D = Telegraph.line(_world(), from, dir, 28.0, 2.8, d, 36.0, hero)
+	t.on_strike = _shake.bind(0.6)
+	_play_fit("slash", d + 0.4)
+	if with_wait:
+		await _wait(d + 0.8)
+
+# Two expanding rings around the hero's position: out of the inner ring, then out of the outer one.
+func _atk_void_pulse() -> void:
+	_face_hero_now()
+	var center := Vector3(hero.global_position.x, 0.0, hero.global_position.z)
+	_play_fit("roar", 1.4)
+	var first: Node3D = Telegraph.ring(_world(), center, 6.0, _delay(1.1), 28.0, hero)
+	first.wave_time = 0.7
+	await _wait(0.7)
+	var second: Node3D = Telegraph.ring(_world(), center, 10.5, _delay(1.1), 28.0, hero)
+	second.wave_time = 0.9
+	await _wait(_delay(1.1) + 1.0)
+
+# Phase 2: two angled beams, then a short meteor shower.
+func _atk_barrage() -> void:
+	_face_hero_now()
+	var d: float = _delay(1.3)
+	var dir: Vector3 = forward()
+	for angle: float in [-24.0, 24.0]:
+		var side: Vector3 = dir.rotated(Vector3.UP, deg_to_rad(angle))
+		var t: Node3D = Telegraph.line(_world(), global_position + side * 1.5, side, 28.0, 2.8, d, 36.0, hero)
+		t.on_strike = _shake.bind(0.6)
+	_play_fit("slash", d + 0.4)
+	await _wait(d + 0.9)
+	await _atk_meteors(4)

@@ -29,6 +29,13 @@ const BOSSES: Array[Dictionary] = [
 		"attacks": ["blink", "cross", "slash"], "phase2_attacks": ["frenzy"],
 		"anims": {"idle": "idle", "walk": "walk", "run": "run", "slash": "slash", "swipe": "swipe", "slam": "slam", "roar": "roar", "hit": "hit"},
 	},
+	{
+		"id": "ender", "cn": "终焉之主", "en": "Lord of the End",
+		"model": "res://models/ender.glb", "scale": 2.4, "yaw": 180.0, "brightness": 2.2,
+		"hp": 4400.0, "speed": 3.8, "hit_radius": 1.6, "hit_height": 4.4, "flying": false,
+		"attacks": ["meteors", "beam", "void_pulse"], "phase2_attacks": ["barrage"],
+		"anims": {},
+	},
 ]
 
 static func best_time(id: String) -> float:
