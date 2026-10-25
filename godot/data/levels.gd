@@ -31,3 +31,41 @@ static func enemy_spawn_interval(level: int) -> float:
 
 static func enemy_cap(level: int) -> int:
 	return mini(36, 10 + 2 * level)
+
+# ---------- terrain and progress ----------
+
+# Levels 11-20 have lava terrain.
+static func is_lava(level: int) -> bool:
+	return level >= 11
+
+const SAVE_DEFAULT: String = "user://progress.cfg"
+static var save_path: String = SAVE_DEFAULT
+static var _highest_cleared: int = -1
+# Debug builds can unlock every level from the map screen.
+static var unlock_all: bool = false
+
+static func highest_cleared() -> int:
+	if _highest_cleared < 0:
+		var cfg := ConfigFile.new()
+		_highest_cleared = int(cfg.get_value("progress", "highest_cleared", 0)) if cfg.load(save_path) == OK else 0
+	return _highest_cleared
+
+static func highest_unlocked() -> int:
+	if unlock_all:
+		return MAX_LEVEL
+	return mini(MAX_LEVEL, highest_cleared() + 1)
+
+static func mark_cleared(level: int) -> void:
+	if level <= highest_cleared():
+		return
+	_highest_cleared = level
+	_save()
+
+static func reset_progress() -> void:
+	_highest_cleared = 0
+	_save()
+
+static func _save() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("progress", "highest_cleared", _highest_cleared)
+	cfg.save(save_path)

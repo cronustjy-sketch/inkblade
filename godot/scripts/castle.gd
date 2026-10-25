@@ -16,6 +16,8 @@ const DOOR := Color("2b2118")
 
 var hp: float = 500.0
 var _fill: MeshInstance3D
+var invulnerable: bool = false
+var _ward: MeshInstance3D
 
 func _ready() -> void:
 	hp = max_hp
@@ -64,7 +66,7 @@ func is_castle() -> bool:
 	return true
 
 func take_damage(amount: float) -> void:
-	if hp <= 0.0:
+	if hp <= 0.0 or invulnerable:
 		return
 	hp = maxf(0.0, hp - amount)
 	_update_bar()
@@ -87,3 +89,22 @@ func _bar_quad(size: Vector2, color: Color, z: float) -> MeshInstance3D:
 	mat.billboard_keep_scale = true
 	mi.material_override = mat
 	return mi
+
+# While a level boss is alive the castle can't be damaged; a translucent ink ward shows it.
+func set_invulnerable(value: bool) -> void:
+	invulnerable = value
+	if value and _ward == null:
+		_ward = MeshInstance3D.new()
+		var sphere := SphereMesh.new()
+		sphere.radius = 6.0
+		sphere.height = 12.0
+		sphere.radial_segments = 16
+		sphere.rings = 8
+		_ward.mesh = sphere
+		var mat := Ink.fill_mat(Color(0.48, 0.29, 0.84, 0.18))
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_ward.material_override = mat
+		_ward.position.y = 3.5
+		add_child(_ward)
+	if _ward != null:
+		_ward.visible = value

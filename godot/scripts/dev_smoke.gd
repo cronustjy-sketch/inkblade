@@ -18,6 +18,7 @@ func _ready() -> void:
 	await _step7()
 	await _step8()
 	await _step9()
+	await _step10()
 	print("SMOKE DONE failures=%d" % failures)
 	get_tree().quit()
 
@@ -297,3 +298,77 @@ func _step9() -> void:
 	check("ultimate skips enemies off screen", far.hp == 1000.0)
 	check("ultimate resets the meter", battle.ink == 0.0)
 	await clear_units()
+
+func _step10() -> void:
+	const BossData := preload("res://data/bosses.gd")
+	Levels.save_path = "user://smoke_progress.cfg"
+	Levels.reset_progress()
+	check("progress: fresh save unlocks only level 1", Levels.highest_unlocked() == 1)
+	Levels.mark_cleared(1)
+	Levels.mark_cleared(5)
+	check("progress: clearing level 5 unlocks level 6", Levels.highest_unlocked() == 6 and Levels.highest_cleared() == 5)
+	Levels.mark_cleared(3)
+	check("progress: clearing an earlier level never lowers progress", Levels.highest_cleared() == 5)
+	Levels.mark_cleared(20)
+	check("progress: cannot unlock past level 20", Levels.highest_unlocked() == 20)
+	Levels.reset_progress()
+	Levels.mark_cleared(4)
+
+	var expected: Dictionary = {5: [950.0, 26.0], 10: [1900.0, 34.0], 15: [3600.0, 46.0], 20: [6000.0, 58.0]}
+	for lv: int in expected:
+		var cfg: Dictionary = BossData.for_level(lv)
+		check("boss L%d stats %s" % [lv, str(expected[lv])], cfg["hp"] == expected[lv][0] and cfg["atk"] == expected[lv][1])
+	for lv in [1, 4, 6, 11]:
+		check("level %d has no boss" % lv, not BossData.has_boss(lv))
+	check("lava terrain only on levels 11-20", not Levels.is_lava(10) and Levels.is_lava(11) and Levels.is_lava(20))
+	check("enemy castle HP = 420 + 70 x level (L7 = %.0f)" % Levels.enemy_castle_hp(7), Levels.enemy_castle_hp(7) == 910.0)
+	check("enemy stat multiplier L11 = 2.1", is_equal_approx(Levels.enemy_stat_mult(11), 2.1))
+	check("enemy pool L1 is swordsmen only", Levels.enemy_pool(1) == ["soldier"])
+	check("enemy pool L13 adds the catapult", "catapult" in Levels.enemy_pool(13) and not "dragon" in Levels.enemy_pool(13))
+
+	# Every boss level: spawns 3 s in, castle is warded until the boss dies.
+	for lv in [5, 10, 15, 20]:
+		battle.queue_free()
+		await get_tree().process_frame
+		Levels.current_level = lv
+		battle = BATTLE.instantiate()
+		add_child(battle)
+		await wait(0.3)
+		battle.hero._cd_left = 1.0e9
+		var castle: Node3D = battle.enemy_castle
+		check("L%d: castle is warded before the boss appears" % lv, castle.invulnerable and battle.boss == null)
+		await wait(3.2)
+		check("L%d: boss spawns ~3 s into the level" % lv, battle.boss != null)
+		var hp0: float = castle.hp
+		castle.take_damage(100.0)
+		check("L%d: castle takes no damage while the boss lives" % lv, castle.hp == hp0)
+		check("L%d: boss has the right max HP (%.0f)" % [lv, battle.boss.max_hp], battle.boss.max_hp == BossData.for_level(lv)["hp"])
+		battle.boss.take_damage(1.0e9)
+		await wait(0.3)
+		check("L%d: killing the boss drops the ward (inv=%s boss=%s)" % [lv, str(castle.invulnerable), str(battle.boss)], not castle.invulnerable and battle.boss == null)
+		castle.take_damage(100.0)
+		check("L%d: castle can be damaged after the boss dies" % lv, castle.hp == hp0 - 100.0)
+
+	# Win / progress hook and lava level.
+	battle.queue_free()
+	await get_tree().process_frame
+	Levels.reset_progress()
+	Levels.current_level = 12
+	battle = BATTLE.instantiate()
+	add_child(battle)
+	await wait(0.3)
+	battle.spawner.enabled = false
+	battle.enemy_castle.take_damage(1.0e9)
+	await wait(0.2)
+	check("winning level 12 saves progress", Levels.highest_cleared() == 12)
+	battle.get_tree().paused = false
+
+	# Map scene.
+	var map: Control = load("res://scenes/map.tscn").instantiate()
+	add_child(map)
+	await wait(0.2)
+	check("map has 20 level nodes", map.node_buttons.size() == 20)
+	check("map: cleared levels open, next level open, rest locked", not map.node_buttons[12].disabled and not map.node_buttons[13].disabled and map.node_buttons[14].disabled)
+	map.queue_free()
+
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://smoke_progress.cfg"))

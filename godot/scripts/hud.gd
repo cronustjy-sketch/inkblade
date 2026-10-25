@@ -123,6 +123,12 @@ func show_result(won: bool, level: int, has_next: bool) -> void:
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(sub)
 
+	if won and not has_next:
+		var done := Label.new()
+		done.text = "恭喜通关！ All levels cleared!  —  Junyuan"
+		done.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		done.add_theme_color_override("font_color", GOLD)
+		box.add_child(done)
 	if won and has_next:
 		box.add_child(_result_button("下一关 Next Level", next_level_requested))
 	box.add_child(_result_button("重试 Retry", retry_requested))

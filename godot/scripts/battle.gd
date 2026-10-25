@@ -1,6 +1,7 @@
 extends Node3D
 
 const Levels := preload("res://data/levels.gd")
+const BossData := preload("res://data/bosses.gd")
 const UnitData := preload("res://data/units.gd")
 const PLAYER_CASTLE_X: float = 0.0
 const ENEMY_CASTLE_X: float = 40.0
@@ -17,6 +18,8 @@ const HUD_SCENE: PackedScene = preload("res://scenes/hud.tscn")
 const SPAWNER_SCRIPT: GDScript = preload("res://scripts/spawner.gd")
 const HERO_SCENE: PackedScene = preload("res://scenes/hero.tscn")
 const DECOR_SCRIPT: GDScript = preload("res://scripts/decor.gd")
+const MAP_SCENE: String = "res://scenes/map.tscn"
+const LAVA_SKY := Color("dcb99a")
 
 @export var start_level: int = 1
 
@@ -35,6 +38,8 @@ var controlled: Node3D
 var ink: float = 0.0
 var rally_t: float = 0.0
 var _shake_t: float = 0.0
+var boss: Node3D
+var _boss_alive: bool = false
 var _over: bool = false
 
 func _ready() -> void:
@@ -56,7 +61,11 @@ func _ready() -> void:
 	var decor: Node3D = Node3D.new()
 	decor.set_script(DECOR_SCRIPT)
 	add_child(decor)
-	decor.build($Ground, ENEMY_CASTLE_X)
+	decor.build($Ground, ENEMY_CASTLE_X, Levels.is_lava(level))
+	if Levels.is_lava(level):
+		$WorldEnvironment.environment.background_color = LAVA_SKY
+	if BossData.has_boss(level):
+		enemy_castle.set_invulnerable(true)
 
 	hud = HUD_SCENE.instantiate()
 	add_child(hud)
@@ -69,6 +78,7 @@ func _ready() -> void:
 	hud.spawn_requested.connect(_on_spawn_requested)
 	hud.retry_requested.connect(_on_retry)
 	hud.next_level_requested.connect(_on_next_level)
+	hud.map_requested.connect(_on_map)
 
 	hero = HERO_SCENE.instantiate()
 	hero.setup(self, level)
@@ -86,6 +96,7 @@ func _process(delta: float) -> void:
 
 	hud.update_skills(hero)
 	hud.update_ink(ink, UnitData.ULT_MAX)
+	_track_boss()
 	rally_t = maxf(0.0, rally_t - delta)
 	_shake_t = maxf(0.0, _shake_t - delta)
 	_validate_control()
@@ -151,6 +162,8 @@ func _on_castle_destroyed(team: int) -> void:
 		return
 	_over = true
 	var won: bool = team == 1
+	if won:
+		Levels.mark_cleared(level)
 	get_tree().paused = true
 	hud.show_result(won, level, level < Levels.MAX_LEVEL)
 
@@ -285,3 +298,32 @@ func cast_ultimate() -> bool:
 	hud.flash()
 	_shake_t = 0.5
 	return true
+
+# ---------- boss ----------
+
+func spawn_boss() -> void:
+	if _boss_alive or not BossData.has_boss(level):
+		return
+	_boss_alive = true
+	boss = UNIT_SCENE.instantiate()
+	boss.setup_boss(level, player_castle)
+	add_child(boss)
+	boss.position = Vector3(enemy_castle.position.x - 4.8, 0.0, 0.0)
+	var b: Dictionary = BossData.for_level(level)
+	hud.show_boss(b["name_cn"], b["name_en"], b["hp"])
+
+# Keeps the boss bar in sync and drops the castle ward when the boss dies.
+func _track_boss() -> void:
+	if not _boss_alive:
+		return
+	if is_instance_valid(boss) and not boss.is_queued_for_deletion():
+		hud.update_boss(boss.hp)
+		return
+	_boss_alive = false
+	boss = null
+	hud.hide_boss()
+	enemy_castle.set_invulnerable(false)
+
+func _on_map() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file(MAP_SCENE)

@@ -4,6 +4,8 @@ const UnitData := preload("res://data/units.gd")
 const StickmanScript := preload("res://scripts/stickman.gd")
 const ProjectileScript := preload("res://scripts/projectile.gd")
 const Fx := preload("res://scripts/fx.gd")
+const BossData := preload("res://data/bosses.gd")
+const ModelRigScript := preload("res://scripts/modelrig.gd")
 const CASTLE_HALF_WIDTH: float = 3.2
 const LANE_MIN_X: float = 0.0
 const LANE_MAX_X: float = 40.0
@@ -24,6 +26,8 @@ var inside: bool = false
 var flying: bool = false
 var armor: float = 0.0
 var blocks_arrows: bool = false
+var is_boss: bool = false
+var _bar_half: float = 0.4
 
 var enemy_castle: Node3D
 var battle: Node3D # set for player units; enemies ignore orders
@@ -55,17 +59,40 @@ func setup(p_team: int, p_key: String, p_enemy_castle: Node3D, stat_mult: float 
 	blocks_arrows = data.get("blocks_arrows", false)
 	_dir = 1.0 if team == 0 else -1.0
 
+# Level boss (enemy team). Stats come from data/bosses.gd and are not scaled.
+func setup_boss(level: int, p_enemy_castle: Node3D) -> void:
+	var b: Dictionary = BossData.for_level(level)
+	team = 1
+	key = "boss"
+	is_boss = true
+	enemy_castle = p_enemy_castle
+	data = b.duplicate()
+	data["pop"] = 3
+	max_hp = b["hp"]
+	hp = max_hp
+	atk = b["atk"]
+	attack_range = b["range"] / UnitData.PX_PER_M
+	speed = b["speed"] / UnitData.PX_PER_M
+	cooldown = b["cooldown"]
+	pop = 3
+	_dir = -1.0
+
 func _ready() -> void:
 	add_to_group("units")
 	add_to_group("team_%d" % team)
 
-	_rig = StickmanScript.new()
-	_rig.setup(key, team, speed)
+	if is_boss:
+		_rig = ModelRigScript.new()
+		_rig.setup(data)
+		_bar_half = 1.2
+	else:
+		_rig = StickmanScript.new()
+		_rig.setup(key, team, speed)
 	add_child(_rig)
 
 	_fill = MeshInstance3D.new()
 	var quad := QuadMesh.new()
-	quad.size = Vector2(0.8, 0.1)
+	quad.size = Vector2(_bar_half * 2.0, 0.1 if not is_boss else 0.16)
 	_fill.mesh = quad
 	_fill.position.y = _rig.height + 0.25
 	var bar_mat := _unshaded(Color("3ddc6a"))
@@ -224,7 +251,7 @@ func _apply_knockback(delta: float) -> void:
 
 func _update_bar() -> void:
 	_fill.scale.x = maxf(hp / max_hp, 0.001)
-	_fill.position.x = -0.4 * (1.0 - hp / max_hp)
+	_fill.position.x = -_bar_half * (1.0 - hp / max_hp)
 
 # ---------- attacks ----------
 
