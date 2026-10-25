@@ -13,6 +13,8 @@ var attack_range: float = 0.8
 var speed: float = 1.5
 var cooldown: float = 0.9
 var pop: int = 1
+var inside: bool = false
+var flying: bool = false
 
 var enemy_castle: Node3D
 var _cd_left: float = 0.0
@@ -33,6 +35,7 @@ func setup(p_team: int, p_key: String, p_enemy_castle: Node3D, stat_mult: float 
 	speed = d["speed"] / UnitData.PX_PER_M
 	cooldown = d["cooldown"]
 	pop = d["pop"]
+	flying = d.get("flying", false)
 	_dir = 1.0 if team == 0 else -1.0
 
 func _ready() -> void:

@@ -4,9 +4,10 @@ const Levels := preload("res://data/levels.gd")
 const UnitData := preload("res://data/units.gd")
 const PLAYER_CASTLE_X: float = 0.0
 const ENEMY_CASTLE_X: float = 40.0
-const CAM_SPEED: float = 14.0
 const CAM_HEIGHT: float = 10.0
 const CAM_DISTANCE: float = 28.0
+const CAM_FOLLOW: float = 5.0
+const IMPLEMENTED_SKILLS: Array[String] = ["slash"]
 const MAX_ENERGY: float = 200.0
 const ENERGY_REGEN: float = 10.0
 const MAX_POP: int = 50
@@ -52,14 +53,17 @@ func _ready() -> void:
 
 	hud = HUD_SCENE.instantiate()
 	add_child(hud)
-	hud.setup(level, MAX_ENERGY, MAX_POP)
+	hud.setup(level, MAX_ENERGY, MAX_POP, _unlocked_skills())
+	hud.skill_requested.connect(_on_skill_requested)
 	hud.spawn_requested.connect(_on_spawn_requested)
 	hud.retry_requested.connect(_on_retry)
 	hud.next_level_requested.connect(_on_next_level)
 
 	hero = HERO_SCENE.instantiate()
+	hero.setup(self, level)
 	hero.position = Vector3(6.0, 0.0, 0.0)
 	add_child(hero)
+	cam_x = hero.position.x
 
 	var spawner: Node = SPAWNER_SCRIPT.new()
 	add_child(spawner)
@@ -69,11 +73,33 @@ func _process(delta: float) -> void:
 	energy = minf(MAX_ENERGY, energy + ENERGY_REGEN * delta)
 	hud.update_state(energy, player_pop())
 
-	# Placeholder camera control until the hero exists (build step 5).
-	var dir: float = Input.get_axis("ui_left", "ui_right")
-	cam_x = clampf(cam_x + dir * CAM_SPEED * delta, PLAYER_CASTLE_X, ENEMY_CASTLE_X)
+	hud.update_skills(hero)
+	hero.move(move_axis(), delta)
+
+	# Camera follows the hero, clamped between the castles.
+	var target_x: float = clampf(hero.position.x, PLAYER_CASTLE_X, ENEMY_CASTLE_X)
+	cam_x = lerpf(cam_x, target_x, 1.0 - exp(-CAM_FOLLOW * delta))
 	camera.position = Vector3(cam_x, CAM_HEIGHT, CAM_DISTANCE)
 	camera.look_at(Vector3(cam_x, 1.5, 0.0), Vector3.UP)
+
+# -1 / 0 / +1 from the arrow keys or A / D.
+func move_axis() -> float:
+	var axis: float = Input.get_axis("ui_left", "ui_right")
+	if Input.is_key_pressed(KEY_A):
+		axis -= 1.0
+	if Input.is_key_pressed(KEY_D):
+		axis += 1.0
+	return clampf(axis, -1.0, 1.0)
+
+func _unlocked_skills() -> Array[String]:
+	var out: Array[String] = []
+	for id: String in IMPLEMENTED_SKILLS:
+		if UnitData.HERO_SKILLS[id]["unlock"] <= level:
+			out.append(id)
+	return out
+
+func _on_skill_requested(id: String) -> void:
+	hero.cast(id)
 
 func player_pop() -> int:
 	var total: int = 0
@@ -116,15 +142,24 @@ func _on_next_level() -> void:
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 
-# Debug only: F1 wins the level, F2 loses it.
 func _unhandled_key_input(event: InputEvent) -> void:
-	if not OS.is_debug_build() or not (event is InputEventKey) or not event.pressed or event.echo:
+	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
-	if event.keycode == KEY_F1:
+	for id: String in IMPLEMENTED_SKILLS:
+		if event.keycode == OS.find_keycode_from_string(UnitData.HERO_SKILLS[id]["key"]):
+			hero.cast(id)
+			return
+	_debug_key(event.keycode)
+
+# Debug only: F1 wins the level, F2 loses it, F3 / F4 preview hero animations.
+func _debug_key(keycode: Key) -> void:
+	if not OS.is_debug_build():
+		return
+	if keycode == KEY_F1:
 		enemy_castle.take_damage(enemy_castle.hp)
-	elif event.keycode == KEY_F2:
+	elif keycode == KEY_F2:
 		player_castle.take_damage(player_castle.hp)
-	elif event.keycode == KEY_F3:
+	elif keycode == KEY_F3:
 		hero.play("run")
-	elif event.keycode == KEY_F4:
-		hero.play("slash1")
+	elif keycode == KEY_F4:
+		hero.play("slash1", 0.5)

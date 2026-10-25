@@ -1,19 +1,34 @@
 extends CanvasLayer
 
 signal spawn_requested(key: String)
+signal skill_requested(id: String)
+signal order_requested(order: int)
+@warning_ignore("unused_signal")
+signal ult_requested
 signal retry_requested
 signal next_level_requested
+signal map_requested
 
 const UnitData := preload("res://data/units.gd")
 const GOLD := Color("e8b44a")
+const RED := Color("de4b3f")
 const PANEL := Color("13161b")
+const ORDERS: Array[Array] = [["进攻", "Attack"], ["防守", "Defend"], ["撤退", "Retreat"]]
 
 var _energy_bar: ProgressBar
 var _energy_label: Label
 var _pop_label: Label
 var _buttons: Dictionary = {}
+var _skill_buttons: Dictionary = {}
+var _order_buttons: Array[Button] = []
+var _ink_bar: ProgressBar
+var _ink_label: Label
+var _control_label: Label
+var _boss_box: VBoxContainer
+var _boss_bar: ProgressBar
+var _boss_label: Label
 
-func setup(level: int, max_energy: float, max_pop: int) -> void:
+func setup(level: int, max_energy: float, max_pop: int, skills: Array[String] = []) -> void:
 	$LevelLabel.text = "第 %d 关 Level %d" % [level, level]
 	_energy_bar.max_value = max_energy
 	_pop_label.set_meta("max_pop", max_pop)
@@ -22,12 +37,18 @@ func setup(level: int, max_energy: float, max_pop: int) -> void:
 		var d: Dictionary = UnitData.UNITS[key]
 		if d["unlock"] > level:
 			continue
-		var b := Button.new()
-		b.text = "%s\n%s\n⚡%d" % [d["name_cn"], d["name_en"], d["cost"]]
-		b.custom_minimum_size = Vector2(110, 64)
+		var b: Button = _button("%s\n%s\n⚡%d" % [d["name_cn"], d["name_en"], d["cost"]], Vector2(88, 64), 12)
 		b.pressed.connect(func() -> void: spawn_requested.emit(key))
 		$Panel/Margin/VBox/Buttons.add_child(b)
 		_buttons[key] = b
+	for id: String in skills:
+		var s: Dictionary = UnitData.HERO_SKILLS[id]
+		var b: Button = _button("", Vector2(84, 58), 12)
+		b.pressed.connect(func() -> void: skill_requested.emit(id))
+		$Skills/Row.add_child(b)
+		_skill_buttons[id] = b
+		b.text = "%s %s\n%s" % [s["key"], s["name_cn"], s["name_en"]]
+	$Skills.visible = not skills.is_empty()
 
 func update_state(energy: float, pop: int) -> void:
 	var max_energy: float = _energy_label.get_meta("max_energy")
@@ -38,6 +59,44 @@ func update_state(energy: float, pop: int) -> void:
 	for key: String in _buttons:
 		var d: Dictionary = UnitData.UNITS[key]
 		_buttons[key].disabled = energy < d["cost"] or pop + int(d["pop"]) > max_pop
+
+# hero is the hero node: needs can_cast(id) and cooldown_fraction(id).
+func update_skills(hero: Node3D) -> void:
+	for id: String in _skill_buttons:
+		var s: Dictionary = UnitData.HERO_SKILLS[id]
+		var b: Button = _skill_buttons[id]
+		var left: float = hero.skill_cd.get(id, 0.0)
+		b.disabled = not hero.can_cast(id)
+		var tail: String = "%.1fs" % left if left > 0.0 else s["name_en"]
+		b.text = "%s %s\n%s" % [s["key"], s["name_cn"], tail]
+
+func update_ink(value: float, max_value: float) -> void:
+	_ink_label.visible = true
+	_ink_bar.visible = true
+	_ink_bar.max_value = max_value
+	_ink_bar.value = value
+	var is_full: bool = value >= max_value
+	_ink_label.text = "墨刃·终 Ink Blade Final  [空格 Space]%s" % ("  就绪 READY" if is_full else "")
+	_ink_label.add_theme_color_override("font_color", GOLD if is_full else Color("c9c3b0"))
+
+func set_order(order: int) -> void:
+	for i in _order_buttons.size():
+		_order_buttons[i].button_pressed = i == order
+
+func set_control_text(text: String) -> void:
+	_control_label.text = text
+
+func show_boss(name_cn: String, name_en: String, max_hp: float) -> void:
+	_boss_bar.max_value = max_hp
+	_boss_bar.value = max_hp
+	_boss_label.text = "%s  %s" % [name_cn, name_en]
+	_boss_box.visible = true
+
+func update_boss(hp: float) -> void:
+	_boss_bar.value = hp
+
+func hide_boss() -> void:
+	_boss_box.visible = false
 
 func show_result(won: bool, level: int, has_next: bool) -> void:
 	var dim := ColorRect.new()
@@ -56,7 +115,7 @@ func show_result(won: bool, level: int, has_next: bool) -> void:
 	var title := Label.new()
 	title.text = "胜利 Victory" if won else "失败 Defeat"
 	title.add_theme_font_size_override("font_size", 48)
-	title.add_theme_color_override("font_color", GOLD if won else Color("de4b3f"))
+	title.add_theme_color_override("font_color", GOLD if won else RED)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 
@@ -68,12 +127,19 @@ func show_result(won: bool, level: int, has_next: bool) -> void:
 	if won and has_next:
 		box.add_child(_result_button("下一关 Next Level", next_level_requested))
 	box.add_child(_result_button("重试 Retry", retry_requested))
+	box.add_child(_result_button("地图 Map", map_requested))
 
 func _result_button(text: String, sig: Signal) -> Button:
+	var b: Button = _button(text, Vector2(220, 52), 16)
+	b.pressed.connect(func() -> void: sig.emit())
+	return b
+
+func _button(text: String, min_size: Vector2, font_size: int) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(220, 52)
-	b.pressed.connect(func() -> void: sig.emit())
+	b.custom_minimum_size = min_size
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_size_override("font_size", font_size)
 	return b
 
 func _init() -> void:
@@ -84,6 +150,14 @@ func _init() -> void:
 	level_label.position = Vector2(14, 10)
 	level_label.add_theme_color_override("font_color", Color("13161b"))
 	add_child(level_label)
+
+	_control_label = Label.new()
+	_control_label.position = Vector2(14, 34)
+	_control_label.add_theme_color_override("font_color", Color("13161b"))
+	add_child(_control_label)
+
+	_build_boss_bar()
+	_build_side_bars()
 
 	var panel := PanelContainer.new()
 	panel.name = "Panel"
@@ -123,5 +197,71 @@ func _init() -> void:
 
 	var buttons := HBoxContainer.new()
 	buttons.name = "Buttons"
-	buttons.add_theme_constant_override("separation", 8)
+	buttons.add_theme_constant_override("separation", 6)
 	vbox.add_child(buttons)
+
+# Orders (bottom-left), skills + ult meter (bottom-right), both floating above the bottom panel.
+func _build_side_bars() -> void:
+	var orders := HBoxContainer.new()
+	orders.name = "Orders"
+	orders.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	orders.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	orders.position = Vector2(10, -150)
+	orders.add_theme_constant_override("separation", 6)
+	add_child(orders)
+	orders.visible = false
+	for i in ORDERS.size():
+		var b: Button = _button("%s\n%s" % [ORDERS[i][0], ORDERS[i][1]], Vector2(78, 50), 12)
+		b.toggle_mode = true
+		var order: int = i
+		b.pressed.connect(func() -> void: order_requested.emit(order))
+		orders.add_child(b)
+		_order_buttons.append(b)
+
+	var skills := VBoxContainer.new()
+	skills.name = "Skills"
+	skills.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	skills.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	skills.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	skills.position = Vector2(-10, -150)
+	skills.visible = false
+	add_child(skills)
+	_ink_label = Label.new()
+	_ink_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_ink_label.add_theme_font_size_override("font_size", 12)
+	_ink_label.visible = false
+	skills.add_child(_ink_label)
+	_ink_bar = ProgressBar.new()
+	_ink_bar.show_percentage = false
+	_ink_bar.custom_minimum_size = Vector2(300, 12)
+	var ink_fill := StyleBoxFlat.new()
+	ink_fill.bg_color = Color("0d0d0f")
+	_ink_bar.add_theme_stylebox_override("fill", ink_fill)
+	_ink_bar.visible = false
+	skills.add_child(_ink_bar)
+	var row := HBoxContainer.new()
+	row.name = "Row"
+	row.alignment = BoxContainer.ALIGNMENT_END
+	row.add_theme_constant_override("separation", 6)
+	skills.add_child(row)
+
+func show_orders() -> void:
+	$Orders.visible = true
+
+func _build_boss_bar() -> void:
+	_boss_box = VBoxContainer.new()
+	_boss_box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_boss_box.position = Vector2(-200, 10)
+	_boss_box.visible = false
+	add_child(_boss_box)
+	_boss_label = Label.new()
+	_boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boss_label.add_theme_color_override("font_color", RED)
+	_boss_box.add_child(_boss_label)
+	_boss_bar = ProgressBar.new()
+	_boss_bar.show_percentage = false
+	_boss_bar.custom_minimum_size = Vector2(400, 16)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = RED
+	_boss_bar.add_theme_stylebox_override("fill", fill)
+	_boss_box.add_child(_boss_bar)

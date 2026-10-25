@@ -16,3 +16,24 @@ const UNITS: Dictionary = {
 	"catapult": {"name_cn": "投石车", "name_en": "Catapult", "hp": 220.0, "atk": 50.0, "range": 330.0, "speed": 16.0, "cooldown": 4.2, "cost": 140, "pop": 3, "unlock": 10},
 	"dragon": {"name_cn": "苍龙", "name_en": "Dragon", "hp": 900.0, "atk": 16.0, "range": 40.0, "speed": 80.0, "cooldown": 1.0, "cost": 190, "pop": 4, "unlock": 201},
 }
+
+# The hero (not a spawnable unit). Pixel values like UNITS.
+const HERO: Dictionary = {
+	"name_cn": "墨刃", "name_en": "Ink Blade",
+	"hp": 400.0, "atk": 22.0, "range": 60.0, "speed": 120.0, "cooldown": 0.6,
+	"crit_every": 3, "crit_mult": 2.2, "respawn": 5.0,
+}
+
+# Hero skills. Ranges and radii are pixel values. "key" is the keyboard key shown on the HUD.
+const HERO_SKILLS: Dictionary = {
+	"slash": {"key": "Q", "name_cn": "怒斩", "name_en": "Slash", "cooldown": 11.0, "unlock": 1, "damage": 70.0, "range": 210.0},
+	"dash": {"key": "E", "name_cn": "冲锋", "name_en": "Dash", "cooldown": 6.0, "unlock": 2, "damage": 40.0, "distance": 210.0, "invincible": 0.45},
+	"rally": {"key": "R", "name_cn": "战吼", "name_en": "Rally", "cooldown": 18.0, "unlock": 4, "heal": 0.30, "haste": 1.45, "duration": 6.0},
+	"rain": {"key": "F", "name_cn": "剑雨", "name_en": "Sword Rain", "cooldown": 22.0, "unlock": 6, "damage": 20.0, "range": 270.0, "duration": 2.2, "ticks": 8},
+	"special": {"key": "G", "name_cn": "墨旋", "name_en": "Ink Vortex", "cooldown": 14.0, "unlock": 12, "damage": 50.0, "range": 150.0, "knockback": 3.0},
+}
+
+# Ultimate 墨刃·终: the ink meter fills from damage dealt; at ULT_MAX the hero can strike the whole screen.
+const ULT_MAX: float = 100.0
+const ULT_DAMAGE: float = 300.0
+const ULT_CASTLE_DAMAGE: float = 120.0
