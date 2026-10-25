@@ -5,19 +5,21 @@ const BossData := preload("res://data/bosses.gd")
 const UnitData := preload("res://data/units.gd")
 const PLAYER_CASTLE_X: float = 0.0
 const ENEMY_CASTLE_X: float = 40.0
-const CAM_HEIGHT: float = 4.6
-const CAM_DISTANCE: float = 12.5
+const CAM_FOV: float = 24.0 # narrow lens + long distance = nearly flat side-on view
+const CAM_HEIGHT: float = 2.4
+const CAM_DISTANCE: float = 47.0
 const CAM_FOLLOW: float = 5.0
-const CAM_LOOK_Y: float = 1.5
-const CAM_MIN_X: float = 8.0
-const CAM_MAX_X: float = 32.0
-const ZOOM_MIN: float = 0.55 # hero close-up
-const ZOOM_MAX: float = 3.0 # the whole lane
+const CAM_LOOK_Y: float = 2.4
+const CAM_MIN_X: float = 14.0
+const CAM_MAX_X: float = 26.0
+const ZOOM_MIN: float = 0.45 # hero close-up
+const ZOOM_MAX: float = 1.7 # the whole lane
 const ZOOM_STEP: float = 1.12
 const TILT_MIN: float = -0.15
 const TILT_MAX: float = 0.7
 const TILT_SPEED: float = 0.004
-const CASTLE_Z: float = -2.5
+const CASTLE_Z: float = 0.4 # the statue stands in front of the spawn point
+const CRUMBLE_DELAY: float = 1.8
 const IMPLEMENTED_SKILLS: Array[String] = ["slash", "dash", "rally", "rain", "special"]
 const Fx := preload("res://scripts/fx.gd")
 const MAX_ENERGY: float = 200.0
@@ -27,11 +29,9 @@ const UNIT_SCENE: PackedScene = preload("res://scenes/unit.tscn")
 const HUD_SCENE: PackedScene = preload("res://scenes/hud.tscn")
 const SPAWNER_SCRIPT: GDScript = preload("res://scripts/spawner.gd")
 const HERO_SCENE: PackedScene = preload("res://scenes/hero.tscn")
-const DECOR_SCRIPT: GDScript = preload("res://scripts/decor.gd")
 const BACKDROP_SCRIPT: GDScript = preload("res://scripts/backdrop.gd")
 const AUTOSHOT_SCRIPT: GDScript = preload("res://scripts/autoshot.gd")
 const MAP_SCENE: String = "res://scenes/map.tscn"
-const LAVA_SKY := Color("e39a63")
 
 @export var start_level: int = 1
 
@@ -82,19 +82,13 @@ func _ready() -> void:
 	player_castle.destroyed.connect(_on_castle_destroyed)
 	enemy_castle.destroyed.connect(_on_castle_destroyed)
 
-	var decor: Node3D = Node3D.new()
-	decor.set_script(DECOR_SCRIPT)
-	add_child(decor)
-	decor.build($Ground, ENEMY_CASTLE_X, Levels.is_lava(level))
+	camera.fov = CAM_FOV
+	camera.far = 900.0
 	var backdrop: Node3D = Node3D.new()
 	backdrop.set_script(BACKDROP_SCRIPT)
 	add_child(backdrop)
-	backdrop.build(Levels.is_lava(level), ENEMY_CASTLE_X * 0.5)
-	# The ground runs on far behind the lane so the backdrop mountains stand on it.
-	($Ground.mesh as BoxMesh).size = Vector3(500.0, 0.4, 200.0)
-	$Ground.position = Vector3(ENEMY_CASTLE_X * 0.5, -0.2, -90.0)
-	if Levels.is_lava(level):
-		$WorldEnvironment.environment.background_color = LAVA_SKY
+	backdrop.build(level, camera, ENEMY_CASTLE_X * 0.5)
+	backdrop.style_ground($Ground, level)
 	if BossData.has_boss(level):
 		enemy_castle.set_invulnerable(true)
 
@@ -143,16 +137,17 @@ func _process(delta: float) -> void:
 	var follow: Node3D = controlled if controlled != null else hero
 	# Zoomed out, the camera settles on the middle of the lane instead of following into the castles.
 	zoom = lerpf(zoom, zoom_target, 1.0 - exp(-10.0 * delta))
-	var spread: float = clampf((zoom - 1.0) / 1.7, 0.0, 1.0)
+	var spread: float = clampf((zoom - 1.0) / 0.45, 0.0, 1.0)
 	var mid_x: float = ENEMY_CASTLE_X * 0.5
-	var target_x: float = clampf(follow.position.x, lerpf(CAM_MIN_X, mid_x, spread), lerpf(CAM_MAX_X, mid_x, spread))
+	var extra: float = maxf(0.0, 1.0 - zoom) * 22.0 # zoomed in, the camera may follow the hero all the way to the statues
+	var target_x: float = clampf(follow.position.x, lerpf(CAM_MIN_X, mid_x, spread) - extra, lerpf(CAM_MAX_X, mid_x, spread) + extra)
 	cam_x = lerpf(cam_x, target_x, 1.0 - exp(-CAM_FOLLOW * delta))
 	var dist: float = CAM_DISTANCE * zoom
-	var cam_height: float = lerpf(1.6, CAM_HEIGHT, pow(zoom, 0.85)) + tilt * dist
+	var cam_height: float = CAM_HEIGHT * pow(zoom, 0.6) + tilt * 8.0
 	camera.position = Vector3(cam_x, cam_height, dist)
 	if _shake_t > 0.0:
 		camera.position += Vector3(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0), 0.0) * _shake_t * 0.5
-	camera.look_at(Vector3(cam_x, CAM_LOOK_Y, 0.0), Vector3.UP)
+	camera.look_at(Vector3(cam_x, CAM_LOOK_Y * pow(zoom, 0.6) + tilt * 4.0, 0.0), Vector3.UP)
 
 # -1 / 0 / +1 from the arrow keys or A / D.
 func move_axis() -> float:
@@ -190,7 +185,8 @@ func spawn_unit(team: int, key: String, stat_mult: float = 1.0) -> Node3D:
 	add_child(u)
 	var side: float = 1.0 if team == 0 else -1.0
 	var z_spread: float = 0.4 if UnitData.UNITS[key]["pop"] >= 3 else 1.0
-	u.position = Vector3(own.position.x + side * 4.2, 0.0, randf_range(-z_spread, z_spread))
+	# Units come out from behind their statue (farther from the camera than the statue sprite).
+	u.position = Vector3(own.position.x + side * 0.3, 0.0, randf_range(-1.8, -1.1) * (z_spread / 1.0))
 	return u
 
 func _on_spawn_requested(key: String) -> void:
@@ -207,6 +203,8 @@ func _on_castle_destroyed(team: int) -> void:
 	var won: bool = team == 1
 	if won:
 		Levels.mark_cleared(level)
+	# Let the statue crumble on screen before the result panel pauses the game.
+	await get_tree().create_timer(CRUMBLE_DELAY).timeout
 	get_tree().paused = true
 	hud.show_result(won, level, level < Levels.MAX_LEVEL)
 
@@ -394,7 +392,7 @@ func spawn_boss() -> void:
 	boss = UNIT_SCENE.instantiate()
 	boss.setup_boss(level, player_castle)
 	add_child(boss)
-	boss.position = Vector3(enemy_castle.position.x - 4.8, 0.0, 0.0)
+	boss.position = Vector3(enemy_castle.position.x - 0.5, 0.0, -1.5)
 	var b: Dictionary = BossData.for_level(level)
 	hud.show_boss(b["name_cn"], b["name_en"], b["hp"])
 

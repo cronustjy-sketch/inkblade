@@ -69,3 +69,9 @@ static func _save() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("progress", "highest_cleared", _highest_cleared)
 	cfg.save(save_path)
+
+# Chapters change the landscape palette: 1 grassland (levels 1-5), 2 desert (6-10), 3 lava (11-20).
+static func chapter(level: int) -> int:
+	if level <= 5:
+		return 1
+	return 2 if level <= 10 else 3

@@ -4,7 +4,7 @@ extends Node3D
 
 const Ink := preload("res://scripts/ink.gd")
 const Fx := preload("res://scripts/fx.gd")
-const CASTLE_HALF_WIDTH: float = 3.2
+const CASTLE_HALF_WIDTH: float = 2.4
 
 const KINDS: Dictionary = {
 	"arrow": {"speed": 16.0, "arc": 0.7},

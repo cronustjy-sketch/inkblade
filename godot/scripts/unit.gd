@@ -7,7 +7,7 @@ const Fx := preload("res://scripts/fx.gd")
 const BossData := preload("res://data/bosses.gd")
 const ModelRigScript := preload("res://scripts/modelrig.gd")
 const SpriteRigScript := preload("res://scripts/spriterig.gd")
-const CASTLE_HALF_WIDTH: float = 3.2
+const CASTLE_HALF_WIDTH: float = 2.4
 const LANE_MIN_X: float = 0.0
 const LANE_MAX_X: float = 40.0
 const RANGED_MIN_RANGE: float = 3.0
@@ -83,9 +83,14 @@ func _ready() -> void:
 	add_to_group("team_%d" % team)
 
 	if is_boss:
-		_rig = ModelRigScript.new()
-		_rig.setup(data)
 		_bar_half = 1.2
+		if SpriteRigScript.has_sprite(data["sprite"]):
+			_rig = SpriteRigScript.new()
+			_rig.setup(data["sprite"], team, speed, data["sprite_h"], "gold")
+		else:
+			# Fallback while the sprite art is missing: the old 3D boss model.
+			_rig = ModelRigScript.new()
+			_rig.setup(data)
 	elif SpriteRigScript.has_sprite(key):
 		_rig = SpriteRigScript.new()
 		_rig.setup(key, team, speed)

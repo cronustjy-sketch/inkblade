@@ -15,17 +15,29 @@ var battle: Node3D
 var _auto: bool = false
 var _elapsed: float = 0.0
 var _done: bool = false
+var _damaged: bool = false
+var _crumbled: bool = false
 
 func setup(p_battle: Node3D) -> void:
 	battle = p_battle
 	_auto = OS.get_environment("INK_AUTOSHOT") != ""
-	if _auto:
+	if _auto and OS.get_environment("INK_HERO_X") != "":
+		battle.hero.position.x = float(OS.get_environment("INK_HERO_X"))
+		battle.cam_x = battle.hero.position.x
+	if _auto and OS.get_environment("INK_DAMAGE") == "":
 		_stage_fight.call_deferred()
 
 func _process(delta: float) -> void:
 	if not _auto or _done:
 		return
 	_elapsed += delta
+	if not _damaged and OS.get_environment("INK_DAMAGE") != "" and _elapsed > 1.0:
+		_damaged = true
+		var c: Node3D = battle.enemy_castle
+		c.take_damage(c.max_hp * float(OS.get_environment("INK_DAMAGE")))
+	if not _crumbled and OS.get_environment("INK_CRUMBLE") != "" and _elapsed > 4.0:
+		_crumbled = true
+		battle.enemy_castle.take_damage(1.0e9)
 	if _elapsed >= SHOT_DELAY:
 		_done = true
 		await RenderingServer.frame_post_draw
@@ -47,6 +59,10 @@ func save(file_name: String) -> String:
 func _stage_fight() -> void:
 	battle.spawner.enabled = false
 	battle.energy = 0.0
+	battle.hero._cd_left = 1.0e9 if OS.get_environment("INK_DAMAGE") != "" else 0.0 # keep the hero from finishing the statue
+	if OS.get_environment("INK_HERO_X") != "":
+		battle.hero.position.x = float(OS.get_environment("INK_HERO_X"))
+		battle.cam_x = battle.hero.position.x
 	var hx: float = battle.hero.position.x
 	var mine: Array[String] = []
 	for key: String in UnitData.UNITS:

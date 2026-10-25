@@ -7,7 +7,7 @@ extends Node3D
 const UnitData := preload("res://data/units.gd")
 const SpriteMeta := preload("res://data/sprite_meta.gd")
 
-const COLS: int = 4
+const FRAMES: int = 6 # walk frames and attack frames per sheet (cells 0-5 walk, 6-11 attack)
 const FEET_MARGIN_PX: float = 8.0 # keep in sync with MARGIN in tools/bake_sprites.gd
 const FLASH_TIME: float = 0.12
 
@@ -28,16 +28,17 @@ var _flash_t: float = 0.0
 static func has_sprite(key: String) -> bool:
 	return SpriteMeta.META.has(key)
 
-func setup(key: String, team: int, speed_mps: float) -> void:
+func setup(key: String, team: int, speed_mps: float, height_m: float = -1.0, variant: String = "") -> void:
 	var meta: Dictionary = SpriteMeta.META[key]
-	height = UnitData.UNITS[key]["sprite_h"]
+	height = height_m if height_m > 0.0 else UnitData.UNITS[key]["sprite_h"]
 	gait = 4.2 * speed_mps if speed_mps > 0.0 else 4.0
-	var tex: Texture2D = load("res://sprites/%s_%s.png" % [key, "gold" if team == 0 else "red"])
+	var colour: String = variant if variant != "" else ("gold" if team == 0 else "red")
+	var tex: Texture2D = load("res://sprites/%s_%s.png" % [key, colour])
 
 	_sprite = Sprite3D.new()
 	_sprite.texture = tex
-	_sprite.hframes = COLS
-	_sprite.vframes = 2
+	_sprite.hframes = int(meta.get("cols", 6))
+	_sprite.vframes = int(meta.get("rows", 2))
 	_sprite.pixel_size = height / float(meta["px_h"])
 	_sprite.offset = Vector2(0.0, meta["cell_h"] * 0.5 - FEET_MARGIN_PX)
 	_sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
@@ -82,10 +83,10 @@ func _process(delta: float) -> void:
 			_attack_t = -1.0
 	if _attack_t >= 0.0:
 		var u: float = clampf(_attack_t / _attack_dur, 0.0, 0.999)
-		frame = COLS + int(u * COLS)
+		frame = FRAMES + int(u * FRAMES)
 		_sprite.position.x = sin(u * PI) * 0.18 * _face
 	else:
-		frame = int(floor(_phase / (PI * 0.5))) % COLS if _moving else 0
+		frame = int(floor(_phase / (TAU / FRAMES))) % FRAMES if _moving else 0
 		_sprite.position.x = 0.0
 	_sprite.frame = frame
 	if _flash_t > 0.0:

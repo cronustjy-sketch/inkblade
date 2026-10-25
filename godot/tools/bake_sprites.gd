@@ -10,12 +10,11 @@ extends SceneTree
 # then: godot --headless --path . --import
 
 const RAW_DIR: String = "res://art_src/raw/"
+const RAW_PROPS_DIR: String = "res://art_src/raw_bg/"
 const OUT_DIR: String = "res://sprites/"
 const META_PATH: String = "res://data/sprite_meta.gd"
-const COLS: int = 4
-const ROWS: int = 2
-const OUT_W: int = 288
-const OUT_H: int = 256
+const WIDE_SHEETS: Array[String] = ["cavalry", "catapult"] # 3 columns x 4 rows; everything else is 6 columns x 2 rows
+const WALK_FRAMES: int = 6
 const MARGIN: int = 8
 const BG_MIN: int = 232 # a border-connected pixel whose darkest channel is >= this is background
 const WHITE_MIN: int = 246 # enclosed pure-white patches at least WHITE_BLOB px big are holes too
@@ -26,24 +25,27 @@ const MIN_BLOB: int = 6
 func _init() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	var meta: Dictionary = {}
-	var dir := DirAccess.open(RAW_DIR)
-	var names: PackedStringArray = dir.get_files()
-	names.sort()
-	for file_name in names:
-		if not file_name.ends_with(".png"):
-			continue
-		var key: String = file_name.get_basename()
-		var info: Dictionary = _bake(key)
-		if not info.is_empty():
-			meta[key] = info
-			print("baked %s: px_h=%d" % [key, info["px_h"]])
+	for raw_dir: String in [RAW_DIR, RAW_PROPS_DIR]:
+		var dir := DirAccess.open(raw_dir)
+		var names: PackedStringArray = dir.get_files()
+		names.sort()
+		for file_name in names:
+			if not file_name.ends_with(".png") or (raw_dir == RAW_PROPS_DIR and not file_name.begins_with("props_")):
+				continue
+			var key: String = file_name.get_basename()
+			var info: Dictionary = _bake(key, raw_dir)
+			if not info.is_empty() and not key.begins_with("props_"):
+				meta[key] = info
+				print("baked %s: px_h=%d" % [key, info["px_h"]])
+			elif not info.is_empty():
+				print("baked %s" % key)
 	_write_meta(meta)
 	quit()
 
 @warning_ignore("integer_division")
-func _bake(key: String) -> Dictionary:
+func _bake(key: String, raw_dir: String = RAW_DIR) -> Dictionary:
 	var img := Image.new()
-	if img.load(ProjectSettings.globalize_path(RAW_DIR + key + ".png")) != OK:
+	if img.load(ProjectSettings.globalize_path(raw_dir + key + ".png")) != OK:
 		push_error("cannot load " + key)
 		return {}
 	img.convert(Image.FORMAT_RGBA8)
@@ -52,13 +54,20 @@ func _bake(key: String) -> Dictionary:
 	var data: PackedByteArray = img.get_data()
 	_remove_background(data, w, h)
 	_clear_enclosed_white(data, w, h)
+	if key.begins_with("props_"):
+		return _bake_props(key, data, w, h)
 	if key.begins_with("prop_"):
 		return _bake_prop(key, data, w, h)
 
+	var wide: bool = key in WIDE_SHEETS
+	var cols: int = 3 if wide else 6
+	var rows: int = 4 if wide else 2
+	var out_w: int = 384 if wide else 256
+	var out_h: int = 192 if wide else 256
 	# Group opaque pixels into blobs and give each blob to the cell holding its centre, so a sword that
 	# crosses a cell border stays with its warrior instead of being chopped in two.
-	var cw: int = w / COLS
-	var ch: int = h / ROWS
+	var cw: int = w / cols
+	var ch: int = h / rows
 	var labels := PackedInt32Array()
 	labels.resize(w * h)
 	var blob_cell: Array[int] = [-1]
@@ -104,17 +113,17 @@ func _bake(key: String) -> Dictionary:
 						stack.append(q)
 		var cell: int = -1
 		if count >= MIN_BLOB:
-			var col: int = clampi(sum_x / count / cw, 0, COLS - 1)
-			var row: int = clampi(sum_y / count / ch, 0, ROWS - 1)
-			cell = row * COLS + col
+			var col: int = clampi(sum_x / count / cw, 0, cols - 1)
+			var row: int = clampi(sum_y / count / ch, 0, rows - 1)
+			cell = row * cols + col
 		blob_cell.append(cell)
 		blob_box.append(Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1))
 
 	# Per-cell bounding box = union of its blobs.
 	var boxes: Array[Rect2i] = []
-	boxes.resize(COLS * ROWS)
+	boxes.resize(cols * rows)
 	var has_box: Array[bool] = []
-	has_box.resize(COLS * ROWS)
+	has_box.resize(cols * rows)
 	for id in range(1, next_id):
 		var cell: int = blob_cell[id]
 		if cell < 0:
@@ -125,9 +134,9 @@ func _bake(key: String) -> Dictionary:
 	var scale_f: float = 1.0
 	for i in boxes.size():
 		if has_box[i]:
-			scale_f = minf(scale_f, minf(float(OUT_W - MARGIN * 2) / boxes[i].size.x, float(OUT_H - MARGIN * 2) / boxes[i].size.y))
+			scale_f = minf(scale_f, minf(float(out_w - MARGIN * 2) / boxes[i].size.x, float(out_h - MARGIN * 2) / boxes[i].size.y))
 
-	var sheet := Image.create(OUT_W * COLS, OUT_H * ROWS, false, Image.FORMAT_RGBA8)
+	var sheet := Image.create(out_w * cols, out_h * rows, false, Image.FORMAT_RGBA8)
 	var walk_h: float = 0.0
 	for i in boxes.size():
 		if not has_box[i]:
@@ -144,22 +153,22 @@ func _bake(key: String) -> Dictionary:
 		var nw: int = maxi(1, roundi(box.size.x * scale_f))
 		var nh: int = maxi(1, roundi(box.size.y * scale_f))
 		cell_img.resize(nw, nh, Image.INTERPOLATE_LANCZOS)
-		var col: int = i % COLS
-		var row: int = i / COLS
+		var col: int = i % cols
+		var row: int = i / cols
 		# Keep the character's horizontal position inside its source cell; feet go on a common baseline.
 		var src_center: float = box.position.x + box.size.x * 0.5 - col * cw
-		var cx: float = OUT_W * 0.5 + (src_center - cw * 0.5) * scale_f
-		var x0: int = clampi(roundi(cx - nw * 0.5), 0, OUT_W - nw)
-		var y0: int = OUT_H - MARGIN - nh
-		sheet.blit_rect(cell_img, Rect2i(0, 0, nw, nh), Vector2i(col * OUT_W + x0, row * OUT_H + y0))
-		if row == 0:
+		var cx: float = out_w * 0.5 + (src_center - cw * 0.5) * scale_f
+		var x0: int = clampi(roundi(cx - nw * 0.5), 0, out_w - nw)
+		var y0: int = out_h - MARGIN - nh
+		sheet.blit_rect(cell_img, Rect2i(0, 0, nw, nh), Vector2i(col * out_w + x0, row * out_h + y0))
+		if i < WALK_FRAMES:
 			walk_h += nh
-	walk_h /= float(COLS)
+	walk_h /= float(WALK_FRAMES)
 
 	sheet.save_png(ProjectSettings.globalize_path(OUT_DIR + key + "_gold.png"))
 	_recolor_gold_to_red(sheet)
 	sheet.save_png(ProjectSettings.globalize_path(OUT_DIR + key + "_red.png"))
-	return {"cell_w": OUT_W, "cell_h": OUT_H, "px_h": roundi(walk_h)}
+	return {"cell_w": out_w, "cell_h": out_h, "cols": cols, "rows": rows, "px_h": roundi(walk_h)}
 
 # Flood-fills the near-white background from the image border to transparent, then softens the edge.
 @warning_ignore("integer_division")
@@ -264,7 +273,9 @@ func _write_meta(meta: Dictionary) -> void:
 	keys.sort()
 	for k in keys:
 		var m: Dictionary = meta[k]
-		f.store_string('\t"%s": {"cell_w": %d, "cell_h": %d, "px_h": %d},\n' % [k, m["cell_w"], m["cell_h"], m["px_h"]])
+		var cols: int = m.get("cols", 6)
+		var rows: int = m.get("rows", 2)
+		f.store_string('\t"%s": {"cell_w": %d, "cell_h": %d, "cols": %d, "rows": %d, "px_h": %d},\n' % [k, m["cell_w"], m["cell_h"], cols, rows, m["px_h"]])
 	f.store_string("}\n")
 
 # Single illustrations (art_src/raw/prop_<name>.png, e.g. the castle): background removed, cropped to the
@@ -285,5 +296,37 @@ func _bake_prop(key: String, data: PackedByteArray, w: int, h: int) -> Dictionar
 	var crop := full.get_region(Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1))
 	crop.save_png(ProjectSettings.globalize_path(OUT_DIR + key + "_gold.png"))
 	_recolor_gold_to_red(crop)
+	if key == "prop_statue":
+		_darken_stone(crop)
 	crop.save_png(ProjectSettings.globalize_path(OUT_DIR + key + "_red.png"))
 	return {"cell_w": crop.get_width(), "cell_h": crop.get_height(), "px_h": crop.get_height()}
+
+# A 3x2 sheet of scenery props (art_src/raw_bg/props_<theme>.png) is cut into six tight PNGs:
+# sprites/props_<theme>_0.png ... _5.png (row-major). Returns a non-empty dict when done.
+@warning_ignore("integer_division")
+func _bake_props(key: String, data: PackedByteArray, w: int, h: int) -> Dictionary:
+	var cols: int = 3
+	var rows: int = 2
+	var cw: int = w / cols
+	var ch: int = h / rows
+	var full := Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, data)
+	for i in cols * rows:
+		var cell := Rect2i((i % cols) * cw, (i / cols) * ch, cw, ch)
+		var part: Image = full.get_region(cell)
+		var used: Rect2i = part.get_used_rect()
+		if used.size.x <= 0:
+			continue
+		var crop: Image = part.get_region(used)
+		if crop.get_height() > 512:
+			crop.resize(roundi(crop.get_width() * 512.0 / crop.get_height()), 512, Image.INTERPOLATE_LANCZOS)
+		crop.save_png(ProjectSettings.globalize_path(OUT_DIR + "%s_%d.png" % [key, i]))
+	return {"cell_w": cw, "cell_h": ch, "px_h": ch}
+
+# Enemy statue: the grey stone goes dark and bluish while saturated accents (the red recolour) stay bright.
+func _darken_stone(img: Image) -> void:
+	for y in img.get_height():
+		for x in img.get_width():
+			var c: Color = img.get_pixel(x, y)
+			if c.a < 0.05 or c.s > 0.35:
+				continue
+			img.set_pixel(x, y, Color.from_hsv(0.62, minf(0.25, c.s + 0.1), c.v * 0.42, c.a))

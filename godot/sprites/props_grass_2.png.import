@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dt2v60cehdno4"
-path="res://.godot/imported/prop_castle_gold.png-25b442ebbf8081455f34ae8efa689e3e.ctex"
+uid="uid://cx3gqx8y63kc"
+path="res://.godot/imported/props_grass_2.png-4f7356277c71ab59b74a82b67a84f846.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://sprites/prop_castle_gold.png"
-dest_files=["res://.godot/imported/prop_castle_gold.png-25b442ebbf8081455f34ae8efa689e3e.ctex"]
+source_file="res://sprites/props_grass_2.png"
+dest_files=["res://.godot/imported/props_grass_2.png-4f7356277c71ab59b74a82b67a84f846.ctex"]
 
 [params]
 

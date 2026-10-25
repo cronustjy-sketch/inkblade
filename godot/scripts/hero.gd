@@ -1,21 +1,16 @@
 extends Node3D
 
-# The player's hero. Model: hero_anim.glb (rigged hero.glb: idle, run, slash1-3, spin, roll, hit, jump, power).
+# The player's hero: a 2D sprite (sprites/hero_gold.png) drawn by the same billboard rig as the army units.
 # Moves with the arrow keys (driven by battle.gd), auto-attacks the nearest enemy in range, casts skills.
 
 const UnitData := preload("res://data/units.gd")
 const Fx := preload("res://scripts/fx.gd")
-const Ink := preload("res://scripts/ink.gd")
-const GOLD := Color("e8b44a")
-const SCARF_POINTS: int = 14
-const SCARF_NECK_Y: float = 2.3
-const MODEL: PackedScene = preload("res://models/hero_anim.glb")
-const LOOPING: Array[String] = ["idle", "run"]
-const HERO_SCALE: float = 1.65
-const CASTLE_HALF_WIDTH: float = 3.2
-const MIN_X: float = 3.8
+const SpriteRigScript := preload("res://scripts/spriterig.gd")
+const GOLD := Color("f2b632")
+const CASTLE_HALF_WIDTH: float = 2.4
+const MIN_X: float = 3.4
 const MAX_X: float = 36.2
-const SPAWN_X: float = 6.0
+const SPAWN_X: float = 5.0
 
 var team: int = 0
 var pop: int = 0
@@ -38,14 +33,9 @@ var _hits: int = 0
 var _busy: float = 0.0
 var _moving: bool = false
 var _dead_t: float = -1.0
-var _anim: AnimationPlayer
-var _model: Node3D
 var _fill: MeshInstance3D
 var _bar: Node3D
-var _current: String = ""
-var _scarf_fill: MeshInstance3D
-var _scarf_outline: MeshInstance3D
-var _scarf_t: float = 0.0
+var _rig: Node3D
 var _dash_left: float = 0.0
 var _dash_dir: float = 1.0
 var _dash_speed: float = 0.0
@@ -65,23 +55,13 @@ func setup(p_battle: Node3D, p_level: int) -> void:
 func _ready() -> void:
 	add_to_group("team_0")
 	add_to_group("hero")
-	_model = MODEL.instantiate()
-	_model.scale = Vector3.ONE * HERO_SCALE
-	# Mixamo models face +Z; the battle runs along +X.
-	_model.rotation_degrees.y = 90.0
-	add_child(_model)
-	_anim = _model.find_child("AnimationPlayer", true, false) as AnimationPlayer
-	if _anim == null:
-		push_warning("hero: no AnimationPlayer found in model")
-	else:
-		for anim_name: StringName in _anim.get_animation_list():
-			if String(anim_name) in LOOPING:
-				_anim.get_animation(anim_name).loop_mode = Animation.LOOP_LINEAR
-		_play("idle")
-
-	_build_aura()
+	_rig = SpriteRigScript.new()
+	# Until the hero sheet is baked, borrow the footsoldier sprite.
+	_rig.setup("hero" if SpriteRigScript.has_sprite("hero") else "soldier", 0, speed, UnitData.HERO["sprite_h"], "gold")
+	add_child(_rig)
+	_build_ring()
 	_bar = Node3D.new()
-	_bar.position.y = 2.95
+	_bar.position.y = UnitData.HERO["sprite_h"] + 0.3
 	add_child(_bar)
 	var back := _bar_quad(Vector2(1.0, 0.14), Color("0d0d0f"), 0.0)
 	_bar.add_child(back)
@@ -98,7 +78,6 @@ func _process(delta: float) -> void:
 		if _dead_t < 0.0:
 			_respawn()
 		return
-	_update_scarf(delta)
 	_cd_left -= delta * (UnitData.HERO_SKILLS["rally"]["haste"] if battle.rally_t > 0.0 else 1.0)
 	_dash_step(delta)
 	_auto_attack()
@@ -112,7 +91,7 @@ func move(dir: float, delta: float) -> void:
 	_moving = true
 	facing = signf(dir)
 	position.x = clampf(position.x + dir * speed * delta, MIN_X, MAX_X)
-	rotation_degrees.y = 0.0 if facing > 0.0 else 180.0
+	_rig.set_facing(facing > 0.0)
 
 func can_cast(id: String) -> bool:
 	var s: Dictionary = UnitData.HERO_SKILLS[id]
@@ -144,6 +123,7 @@ func take_damage(amount: float) -> void:
 	if invincible_t > 0.0 or _dead_t >= 0.0:
 		return
 	hp -= amount
+	_rig.flash()
 	_fill.scale.x = maxf(hp / max_hp, 0.001)
 	_fill.position.x = -0.47 * (1.0 - hp / max_hp)
 	if hp <= 0.0:
@@ -260,7 +240,7 @@ func _auto_attack() -> void:
 	var dir: float = signf(target.global_position.x - global_position.x)
 	if dir != 0.0:
 		facing = dir
-		rotation_degrees.y = 0.0 if facing > 0.0 else 180.0
+		_rig.set_facing(facing > 0.0)
 	_cd_left = cooldown
 	_hits += 1
 	var crit_every: int = UnitData.HERO["crit_every"]
@@ -315,23 +295,17 @@ func is_dead() -> bool:
 func _update_anim() -> void:
 	if _busy > 0.0:
 		return
-	_play("run" if _moving else "idle")
+	_rig.set_moving(_moving)
 
+# Run / idle are the walk cycle; everything else plays the attack frames over busy_time seconds.
 func _play(anim_name: String, busy_time: float = 0.0) -> void:
-	if _anim == null or not _anim.has_animation(anim_name):
-		return
-	if busy_time > 0.0:
-		var anim_len: float = _anim.get_animation(anim_name).length
-		_anim.speed_scale = maxf(1.0, anim_len / busy_time)
+	if anim_name == "run":
+		_rig.set_moving(true)
+	elif anim_name == "idle":
+		_rig.set_moving(false)
+	elif busy_time > 0.0:
 		_busy = busy_time
-		_current = ""
-		_anim.play(anim_name, 0.08)
-		return
-	if _current == anim_name:
-		return
-	_current = anim_name
-	_anim.speed_scale = 1.0
-	_anim.play(anim_name, 0.15)
+		_rig.play_attack(busy_time / 0.6)
 
 func _bar_quad(size: Vector2, color: Color, z: float) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -355,87 +329,21 @@ func heal(amount: float) -> void:
 func is_big() -> bool:
 	return false
 
-# ---------- "this is mine" markers: gold glow, ground ring and a flowing gold scarf ----------
+# ---------- marker: a flat gold ring under the hero's feet (the gold scarf is in the sprite) ----------
 
-func _build_aura() -> void:
-	# Soft gold glow behind the hero (additive, always upright to the camera).
-	var grad := Gradient.new()
-	grad.colors = PackedColorArray([Color(GOLD, 0.65), Color(GOLD, 0.0)])
-	var tex := GradientTexture2D.new()
-	tex.gradient = grad
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(1.0, 0.5)
-	tex.width = 128
-	tex.height = 128
-	var glow := MeshInstance3D.new()
-	var quad := QuadMesh.new()
-	quad.size = Vector2(4.2, 4.6)
-	glow.mesh = quad
-	var gmat := _additive(tex, Color.WHITE)
-	gmat.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
-	glow.material_override = gmat
-	glow.position = Vector3(0.0, 1.5, -0.35)
-	add_child(glow)
-	# Ring on the ground under the feet.
+func _build_ring() -> void:
 	var ring := MeshInstance3D.new()
 	var disc := CylinderMesh.new()
-	disc.top_radius = 0.95
-	disc.bottom_radius = 0.95
+	disc.top_radius = 0.9
+	disc.bottom_radius = 0.9
 	disc.height = 0.02
 	disc.radial_segments = 24
 	ring.mesh = disc
-	ring.material_override = _additive(null, Color(GOLD, 0.35))
-	ring.scale = Vector3(1.0, 1.0, 0.45)
-	ring.position.y = 0.04
-	add_child(ring)
-	# Scarf: a tapered gold ribbon (with a black ink outline) streaming behind the neck.
-	_scarf_outline = MeshInstance3D.new()
-	_scarf_outline.mesh = ImmediateMesh.new()
-	_scarf_outline.material_override = _flat_mat(Ink.INK)
-	add_child(_scarf_outline)
-	_scarf_fill = MeshInstance3D.new()
-	_scarf_fill.mesh = ImmediateMesh.new()
-	_scarf_fill.material_override = _flat_mat(GOLD)
-	add_child(_scarf_fill)
-	_update_scarf(0.0)
-
-func _additive(tex: Texture2D, color: Color) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.albedo_color = color
-	if tex != null:
-		mat.albedo_texture = tex
-	return mat
-
-func _flat_mat(color: Color) -> StandardMaterial3D:
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.albedo_color = color
-	return mat
-
-# The scarf streams backwards (opposite to the facing) and ripples; it lifts more while running.
-func _update_scarf(delta: float) -> void:
-	if _scarf_fill == null:
-		return
-	_scarf_t += delta * (9.0 if _moving else 4.0)
-	var lift: float = 0.35 if _moving else 0.12
-	_draw_ribbon(_scarf_outline.mesh as ImmediateMesh, 0.045, -0.01, lift)
-	_draw_ribbon(_scarf_fill.mesh as ImmediateMesh, 0.0, 0.0, lift)
-
-func _draw_ribbon(mesh: ImmediateMesh, extra: float, z: float, lift: float) -> void:
-	mesh.clear_surfaces()
-	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
-	var n: int = SCARF_POINTS
-	for i in n:
-		var f: float = float(i) / float(n - 1)
-		var x: float = -0.1 - f * 1.5
-		var y: float = SCARF_NECK_Y + lift * f - 0.35 * f * f + sin(_scarf_t - f * 5.0) * 0.12 * f
-		var half: float = (0.13 * (1.0 - f * 0.65)) + extra
-		mesh.surface_add_vertex(Vector3(x, y + half, z))
-		mesh.surface_add_vertex(Vector3(x, y - half, z))
-	mesh.surface_end()
+	mat.albedo_color = Color(GOLD, 0.5)
+	ring.material_override = mat
+	ring.scale = Vector3(1.0, 1.0, 0.3)
+	ring.position.y = 0.03
+	add_child(ring)
