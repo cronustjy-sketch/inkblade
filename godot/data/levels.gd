@@ -2,6 +2,11 @@ extends RefCounted
 
 const UnitData := preload("res://data/units.gd")
 
+const MAX_LEVEL: int = 20
+
+# 0 = not chosen yet; battle.gd falls back to its start_level.
+static var current_level: int = 0
+
 # Level at which each unit joins the enemy pool (differs from the player unlock for witch).
 const ENEMY_UNLOCK: Dictionary = {
 	"soldier": 1, "archer": 2, "spear": 3, "shield": 4, "witch": 6, "assassin": 7,

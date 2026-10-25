@@ -1,6 +1,8 @@
 extends CanvasLayer
 
 signal spawn_requested(key: String)
+signal retry_requested
+signal next_level_requested
 
 const UnitData := preload("res://data/units.gd")
 const GOLD := Color("e8b44a")
@@ -12,6 +14,7 @@ var _pop_label: Label
 var _buttons: Dictionary = {}
 
 func setup(level: int, max_energy: float, max_pop: int) -> void:
+	$LevelLabel.text = "第 %d 关 Level %d" % [level, level]
 	_energy_bar.max_value = max_energy
 	_pop_label.set_meta("max_pop", max_pop)
 	_energy_label.set_meta("max_energy", max_energy)
@@ -36,7 +39,52 @@ func update_state(energy: float, pop: int) -> void:
 		var d: Dictionary = UnitData.UNITS[key]
 		_buttons[key].disabled = energy < d["cost"] or pop + int(d["pop"]) > max_pop
 
+func show_result(won: bool, level: int, has_next: bool) -> void:
+	var dim := ColorRect.new()
+	dim.color = Color(0.05, 0.06, 0.08, 0.72)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(dim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.add_child(center)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
+	center.add_child(box)
+
+	var title := Label.new()
+	title.text = "胜利 Victory" if won else "失败 Defeat"
+	title.add_theme_font_size_override("font_size", 48)
+	title.add_theme_color_override("font_color", GOLD if won else Color("de4b3f"))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+
+	var sub := Label.new()
+	sub.text = "第 %d 关 Level %d" % [level, level]
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(sub)
+
+	if won and has_next:
+		box.add_child(_result_button("下一关 Next Level", next_level_requested))
+	box.add_child(_result_button("重试 Retry", retry_requested))
+
+func _result_button(text: String, sig: Signal) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(220, 52)
+	b.pressed.connect(func() -> void: sig.emit())
+	return b
+
 func _init() -> void:
+	# Must keep working while the tree is paused on the result screen.
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	var level_label := Label.new()
+	level_label.name = "LevelLabel"
+	level_label.position = Vector2(14, 10)
+	level_label.add_theme_color_override("font_color", Color("13161b"))
+	add_child(level_label)
+
 	var panel := PanelContainer.new()
 	panel.name = "Panel"
 	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)

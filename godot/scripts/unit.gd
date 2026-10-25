@@ -1,8 +1,7 @@
 extends Node3D
 
 const UnitData := preload("res://data/units.gd")
-const PLAYER_COLOR := Color("e8b44a")
-const ENEMY_COLOR := Color("de4b3f")
+const StickmanScript := preload("res://scripts/stickman.gd")
 const CASTLE_HALF_WIDTH: float = 3.2
 
 var team: int = 0
@@ -19,6 +18,7 @@ var enemy_castle: Node3D
 var _cd_left: float = 0.0
 var _dir: float = 1.0
 var _fill: MeshInstance3D
+var _rig: Node3D
 
 # stat_mult scales hp and atk (enemy level scaling).
 func setup(p_team: int, p_key: String, p_enemy_castle: Node3D, stat_mult: float = 1.0) -> void:
@@ -38,22 +38,16 @@ func setup(p_team: int, p_key: String, p_enemy_castle: Node3D, stat_mult: float 
 func _ready() -> void:
 	add_to_group("units")
 	add_to_group("team_%d" % team)
-	var color: Color = PLAYER_COLOR if team == 0 else ENEMY_COLOR
 
-	var body := MeshInstance3D.new()
-	var capsule := CapsuleMesh.new()
-	capsule.radius = 0.3
-	capsule.height = 1.6
-	body.mesh = capsule
-	body.position.y = 0.8
-	body.material_override = _unshaded(color)
-	add_child(body)
+	_rig = StickmanScript.new()
+	_rig.setup(key, team, speed)
+	add_child(_rig)
 
 	_fill = MeshInstance3D.new()
 	var quad := QuadMesh.new()
 	quad.size = Vector2(0.8, 0.1)
 	_fill.mesh = quad
-	_fill.position.y = 1.9
+	_fill.position.y = _rig.height + 0.25
 	var bar_mat := _unshaded(Color("3ddc6a"))
 	bar_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	bar_mat.billboard_keep_scale = true
@@ -63,12 +57,15 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_cd_left -= delta
 	var target: Node3D = _nearest_enemy()
+	var moving: bool = false
 	if target != null and _x_gap(target.global_position.x) <= attack_range:
 		_try_attack(target)
 	elif enemy_castle != null and _castle_gap() <= attack_range:
 		_try_attack(enemy_castle)
 	else:
 		global_position.x += _dir * speed * delta
+		moving = true
+	_rig.set_moving(moving)
 
 func take_damage(amount: float) -> void:
 	hp -= amount
@@ -80,6 +77,7 @@ func _try_attack(target: Node3D) -> void:
 	if _cd_left > 0.0:
 		return
 	_cd_left = cooldown
+	_rig.play_attack(cooldown)
 	target.take_damage(atk)
 
 func _nearest_enemy() -> Node3D:
