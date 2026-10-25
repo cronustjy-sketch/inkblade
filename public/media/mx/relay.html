@@ -1,3 +1,0 @@
-<!doctype html><meta charset=utf-8><body>relay<script>
-(async()=>{const f=location.hash.slice(1);const b=await (await fetch(f)).arrayBuffer();window.opener.postMessage({ibname:f,buf:b},'*',[b]);document.body.textContent='sent '+f+' '+b.byteLength})()
-</script>
