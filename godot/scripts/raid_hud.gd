@@ -41,6 +41,8 @@ var _stick_touch: int = -1
 var _stick_center: Vector2 = Vector2.ZERO
 var _damage_flash: ColorRect
 var _hint: Label
+var _result: Control
+var _best_label: Label
 
 func _init() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -69,6 +71,14 @@ func show_boss(name_cn: String, name_en: String, hp: float, max_hp: float) -> vo
 
 func hide_boss() -> void:
 	_boss_box.visible = false
+
+func set_best(seconds: float) -> void:
+	_best_label.text = "最佳 Best  %s" % _fmt(seconds)
+
+func clear_result() -> void:
+	if _result != null and is_instance_valid(_result):
+		_result.queue_free()
+	_result = null
 
 func set_boss_hp(hp: float, max_hp: float, phase2: bool) -> void:
 	_boss_bar.max_value = max_hp
@@ -114,6 +124,7 @@ func show_result(won: bool, seconds: float, best: float, has_next: bool, boss_na
 	dim.color = Color(0.05, 0.07, 0.15, 0.6)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(dim)
+	_result = dim
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dim.add_child(center)
@@ -174,6 +185,9 @@ func _build_top() -> void:
 	name_row.add_child(_boss_phase)
 	_boss_bar = _bar(RED, 26)
 	_boss_box.add_child(_boss_bar)
+	_best_label = _outlined("", 14, Color("ffe9a8"), 4)
+	_best_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boss_box.add_child(_best_label)
 
 	_timer_label = _outlined("0:00.00", 22, Color.WHITE, 6)
 	_timer_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)

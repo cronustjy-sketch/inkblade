@@ -3,18 +3,37 @@ extends Node
 # Developer smoke test for the 3D Boss Raid mode (headless): scenes/dev_raid_smoke.tscn.
 
 const RAID: PackedScene = preload("res://scenes/raid.tscn")
+const RaidData := preload("res://data/raid.gd")
 
 var raid: Node3D
 var failures: int = 0
 
 func _ready() -> void:
-	raid = RAID.instantiate()
-	add_child(raid)
-	await wait(0.5)
+	RaidData.save_path = "user://raid_smoke.cfg"
+	RaidData.reset_records()
+	await _new_raid(true)
 	await _part1()
 	await _part2()
+	await _new_raid(false)
+	await _boss_flow(0)
+	await _new_raid(false)
+	await _extra_bosses()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://raid_smoke.cfg"))
 	print("RAID SMOKE DONE failures=%d" % failures)
 	get_tree().quit()
+
+# A fresh raid scene; training = true gives a practice dummy instead of the boss ladder.
+func _new_raid(training: bool, boss_env: int = 0) -> void:
+	if raid != null:
+		raid.queue_free()
+		await get_tree().process_frame
+	raid = RAID.instantiate()
+	raid.training = training
+	add_child(raid)
+	await wait(0.5)
+
+func _extra_bosses() -> void:
+	pass
 
 func check(label: String, ok: bool) -> void:
 	if not ok:
@@ -126,3 +145,48 @@ func _part2() -> void:
 	hero.take_damage(9999.0)
 	check("hero dies at 0 HP", hero.dead and died[0] and raid.over)
 	t1 = null
+
+# One full boss fight: countdown, telegraphs, phase 2 at 50% HP, victory with a saved best time, retry, defeat.
+func _boss_flow(index: int) -> void:
+	var hero: CharacterBody3D = raid.hero
+	var cfg: Dictionary = RaidData.BOSSES[index]
+	check("[%s] boss exists and the HUD shows it" % cfg["id"], raid.boss != null and raid.boss.max_hp == cfg["hp"])
+	check("[%s] the fight starts in a countdown (controls off)" % cfg["id"], raid.state == raid.State.COUNTDOWN and not hero.controls_enabled and not raid.boss.active)
+	await wait(3.9)
+	check("[%s] after 3 s the fight begins" % cfg["id"], raid.state == raid.State.FIGHT and hero.controls_enabled and raid.boss.active)
+	hero.max_hp = 99999.0
+	hero.hp = 99999.0
+	var seen: Dictionary = {}
+	var t: float = 0.0
+	while t < 25.0 and seen.size() < 2:
+		await wait(0.25)
+		t += 0.25
+		for node: Node in raid.get_children():
+			if node.has_method("_hero_inside"):
+				seen[str(node.shape)] = true
+	check("[%s] the boss throws ground telegraphs (%d kinds seen)" % [cfg["id"], seen.size()], seen.size() >= 1)
+	raid.boss.take_hit(raid.boss.max_hp * 0.52, Vector3.ZERO)
+	check("[%s] HP bar follows the boss (hp %.0f)" % [cfg["id"], raid.boss.hp], raid.boss.hp < raid.boss.max_hp * 0.5)
+	t = 0.0
+	while t < 14.0 and raid.boss.phase != 2:
+		await wait(0.25)
+		t += 0.25
+	check("[%s] phase 2 starts at 50%% HP (faster: x%.2f)" % [cfg["id"], raid.boss.speed_mult], raid.boss.phase == 2 and raid.boss.speed_mult > 1.2)
+	await wait(2.2)
+	var time_before: float = raid.fight_time
+	raid.boss.take_hit(1.0e9, Vector3.ZERO)
+	await wait(0.2)
+	check("[%s] killing the boss ends the fight" % cfg["id"], not raid.boss.alive and raid.state == raid.State.OVER and raid.over)
+	await wait(2.0)
+	check("[%s] victory saves the best clear time (%.1fs)" % [cfg["id"], RaidData.best_time(cfg["id"])], RaidData.best_time(cfg["id"]) > 0.0 and absf(RaidData.best_time(cfg["id"]) - time_before) < 2.5)
+	var has_result: bool = raid.hud._result != null
+	check("[%s] a victory panel is shown" % cfg["id"], has_result)
+	raid._retry()
+	await wait(0.4)
+	check("[%s] retry restarts the fight with a fresh boss and a healthy hero" % cfg["id"], raid.boss.alive and raid.boss.hp == raid.boss.max_hp and raid.hero.hp == raid.hero.max_hp and raid.state == raid.State.COUNTDOWN and raid.hud._result == null)
+	await wait(3.8)
+	raid.hero.hp = 10.0
+	raid.hero.invincible_t = 0.0
+	raid.hero.take_damage(50.0)
+	await wait(1.6)
+	check("[%s] hero defeat shows a defeat panel" % cfg["id"], raid.hero.dead and raid.hud._result != null and not raid.boss.active)

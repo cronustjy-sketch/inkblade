@@ -360,3 +360,23 @@ func play_fit(anim_name: String, duration: float) -> void:
 	var length: float = _anim.get_animation(anim_name).length
 	_current = ""
 	play(anim_name, maxf(0.2, length / maxf(duration, 0.05)))
+
+# Back on his feet for a new attempt: full HP, no cooldowns, a moment of invincibility.
+func revive() -> void:
+	dead = false
+	hp = max_hp
+	skill_cd.clear()
+	haste_t = 0.0
+	invincible_t = 1.0
+	_atk_t = 0.0
+	_lock_t = 0.0
+	_roll_t = 0.0
+	_dash_t = 0.0
+	_queued = false
+	_hit_pending = false
+	_combo = 0
+	velocity = Vector3.ZERO
+	Toon.set_flash(_materials, 0.0)
+	_current = ""
+	play("idle")
+	damaged.emit(-1.0)

@@ -4,8 +4,8 @@ extends Node3D
 # Create one with the static helpers; it damages the hero if the hero is inside when the fill completes.
 
 const Fx := preload("res://scripts/raid_fx.gd")
-const BASE_COLOR := Color(1.0, 0.18, 0.12, 0.22)
-const FILL_COLOR := Color(1.0, 0.22, 0.12, 0.55)
+const BASE_COLOR := Color(1.0, 0.1, 0.08, 0.32)
+const FILL_COLOR := Color(1.0, 0.14, 0.1, 0.7)
 const STRIKE_COLOR := Color(1.0, 0.95, 0.8, 0.9)
 
 enum Shape { CIRCLE, LINE, CONE, RING }
