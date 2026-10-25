@@ -6,6 +6,7 @@ const ProjectileScript := preload("res://scripts/projectile.gd")
 const Fx := preload("res://scripts/fx.gd")
 const BossData := preload("res://data/bosses.gd")
 const ModelRigScript := preload("res://scripts/modelrig.gd")
+const SpriteRigScript := preload("res://scripts/spriterig.gd")
 const CASTLE_HALF_WIDTH: float = 3.2
 const LANE_MIN_X: float = 0.0
 const LANE_MAX_X: float = 40.0
@@ -85,7 +86,11 @@ func _ready() -> void:
 		_rig = ModelRigScript.new()
 		_rig.setup(data)
 		_bar_half = 1.2
+	elif SpriteRigScript.has_sprite(key):
+		_rig = SpriteRigScript.new()
+		_rig.setup(key, team, speed)
 	else:
+		# Units without baked sprites (the dragon) keep the primitive stickman.
 		_rig = StickmanScript.new()
 		_rig.setup(key, team, speed)
 	add_child(_rig)
@@ -94,7 +99,7 @@ func _ready() -> void:
 	var quad := QuadMesh.new()
 	quad.size = Vector2(_bar_half * 2.0, 0.1 if not is_boss else 0.16)
 	_fill.mesh = quad
-	_fill.position.y = _rig.height + 0.25
+	_fill.position.y = _rig.height + 0.12
 	var bar_mat := _unshaded(Color("3ddc6a"))
 	bar_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	bar_mat.billboard_keep_scale = true
@@ -226,6 +231,8 @@ func _face(dx: float) -> void:
 
 func take_damage(amount: float) -> void:
 	hp -= amount * (1.0 - armor)
+	if _rig.has_method("flash"):
+		_rig.flash()
 	_update_bar()
 	if hp <= 0.0:
 		queue_free()
