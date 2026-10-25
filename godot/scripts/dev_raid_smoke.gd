@@ -36,6 +36,7 @@ func _extra_bosses() -> void:
 	await _boss_flow(1)
 	await _boss_flow(2)
 	await _boss_flow(3)
+	await _boss_flow(4)
 
 func check(label: String, ok: bool) -> void:
 	if not ok:

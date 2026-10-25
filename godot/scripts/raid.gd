@@ -123,6 +123,8 @@ func _start_fight(index: int) -> void:
 	hero.rotation.y = 0.0
 	hero.controls_enabled = false
 	rig.yaw = 0.0
+	rig.pitch = deg_to_rad(13.0) if RaidData.BOSSES[index]["flying"] else deg_to_rad(22.0)
+	rig.distance = 12.0 if RaidData.BOSSES[index]["flying"] else 10.5
 	hud.set_hero_hp(hero.hp, hero.max_hp)
 	hud.set_time(0.0)
 

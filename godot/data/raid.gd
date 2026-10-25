@@ -36,6 +36,13 @@ const BOSSES: Array[Dictionary] = [
 		"attacks": ["meteors", "beam", "void_pulse"], "phase2_attacks": ["barrage"],
 		"anims": {},
 	},
+	{
+		"id": "dragon", "cn": "苍龙", "en": "Azure Dragon",
+		"model": "res://models/dragon.glb", "scale": 3.0, "yaw": 90.0, "brightness": 2.2,
+		"hp": 5600.0, "speed": 4.2, "hit_radius": 3.6, "hit_height": 3.0, "flying": true, "hover": 4.6, "keep": 12.0,
+		"attacks": ["fire_sweep", "fireballs", "dive"], "phase2_attacks": ["inferno"],
+		"anims": {},
+	},
 ]
 
 static func best_time(id: String) -> float:

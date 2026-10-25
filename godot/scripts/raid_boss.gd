@@ -140,7 +140,7 @@ func _physics_process(delta: float) -> void:
 	# Chase until within reach, always turning to face the hero.
 	if rel.length() > 0.01:
 		rotation.y = lerp_angle(rotation.y, atan2(-rel.x, -rel.z), 1.0 - exp(-5.0 * delta))
-	var stop_at: float = hit_radius + 2.0
+	var stop_at: float = float(cfg.get("keep", hit_radius + 2.0))
 	if dist > stop_at:
 		var dir: Vector3 = rel.normalized()
 		var spd: float = float(cfg["speed"]) * speed_mult
@@ -205,6 +205,14 @@ func _begin_attack() -> void:
 			await _atk_void_pulse()
 		"barrage":
 			await _atk_barrage()
+		"fire_sweep":
+			await _atk_fire_sweep()
+		"fireballs":
+			await _atk_fireballs()
+		"dive":
+			await _atk_dive()
+		"inferno":
+			await _atk_inferno()
 		_:
 			push_warning("raid boss: missing attack " + id)
 			await _wait(0.5)
@@ -504,3 +512,116 @@ func _atk_barrage() -> void:
 	_play_fit("slash", d + 0.4)
 	await _wait(d + 0.9)
 	await _atk_meteors(4)
+
+# ---------- the dragon (flies; fire breath) ----------
+
+# A puff of flame along a line (cosmetic, travels from the dragon's mouth to the end of the telegraph).
+func _flame(from: Vector3, dir: Vector3, length: float, travel: float) -> void:
+	var puff := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 1.0
+	sphere.height = 2.0
+	sphere.radial_segments = 10
+	sphere.rings = 5
+	puff.mesh = sphere
+	var mat: StandardMaterial3D = Fx.flat_material(Color(1.0, 0.45, 0.1, 0.8), true)
+	puff.material_override = mat
+	_world().add_child(puff)
+	puff.global_position = from
+	var end: Vector3 = from + dir * length
+	end.y = 0.6
+	var tw: Tween = puff.create_tween().set_parallel(true)
+	tw.tween_property(puff, "global_position", end, travel)
+	tw.tween_property(puff, "scale", Vector3.ONE * 2.4, travel)
+	tw.tween_property(mat, "albedo_color:a", 0.0, travel).set_delay(travel * 0.4)
+	tw.chain().tween_callback(puff.queue_free)
+
+# Breath that sweeps across an arc: one red line per step, each striking a moment after the one before.
+func _atk_fire_sweep() -> void:
+	_face_hero_now()
+	var steps: int = 9 if phase == 2 else 7
+	var spread: float = 130.0
+	var start_angle: float = -spread * 0.5 if randf() < 0.5 else spread * 0.5
+	var step_angle: float = spread / (steps - 1) * (1.0 if start_angle < 0.0 else -1.0)
+	var origin: Vector3 = Vector3(global_position.x, 0.0, global_position.z)
+	var base: Vector3 = forward()
+	_play_fit("slash", steps * 0.2 + 0.6)
+	for i in steps:
+		if not alive:
+			return
+		var dir: Vector3 = base.rotated(Vector3.UP, deg_to_rad(start_angle + step_angle * i))
+		var t: Node3D = Telegraph.line(_world(), origin + dir * 1.5, dir, 26.0, 2.6, _delay(0.85), 22.0, hero)
+		var mouth: Vector3 = origin + dir * 1.5 + Vector3(0, hover_height(), 0)
+		t.on_strike = _flame.bind(mouth, dir, 24.0, 0.25)
+		await _wait(0.2)
+	await _wait(_delay(0.85) + 0.5)
+
+func hover_height() -> float:
+	return global_position.y
+
+func _atk_fireballs() -> void:
+	_face_hero_now()
+	_play_fit("roar", 1.0)
+	await _wait(0.5)
+	for i in 6:
+		if not _ok():
+			break
+		var spot := Vector3(hero.global_position.x, 0.0, hero.global_position.z)
+		if i % 2 == 1:
+			spot += Vector3(randf_range(-7.0, 7.0), 0.0, randf_range(-7.0, 7.0))
+		spot = Arena.clamp_inside(spot, Arena.LIMIT - 2.0)
+		_fireball(spot, 2.6, _delay(1.2))
+		await _wait(0.34)
+	await _wait(_delay(1.2) + 0.2)
+
+func _fireball(center: Vector3, radius: float, warn: float) -> void:
+	var t: Node3D = Telegraph.circle(_world(), center, radius, warn, 24.0, hero)
+	var ball := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = radius * 0.3
+	sphere.height = radius * 0.6
+	sphere.radial_segments = 10
+	sphere.rings = 5
+	ball.mesh = sphere
+	ball.material_override = Toon.flat(Color("ff7a2a"), 0.08)
+	_world().add_child(ball)
+	ball.global_position = global_position + Vector3(0, 0.5, 0)
+	var tw: Tween = ball.create_tween()
+	tw.tween_property(ball, "global_position", Vector3(center.x, radius * 0.3, center.z), warn).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(ball.queue_free)
+	t.on_strike = _impact.bind(center, radius)
+
+# Swoops low along a red line through the hero's position and climbs back up.
+func _atk_dive() -> void:
+	_face_hero_now()
+	var from := Vector3(global_position.x, 0.0, global_position.z)
+	var dir: Vector3 = _flat_to_hero().normalized()
+	var length: float = clampf(_flat_to_hero().length() + 6.0, 12.0, 26.0)
+	var d: float = _delay(1.3)
+	var t: Node3D = Telegraph.line(_world(), from, dir, length, 3.6, d, 34.0, hero)
+	_play_fit("roar", d)
+	var lift: Tween = create_tween()
+	lift.tween_property(self, "_hover", 8.5, d * 0.6)
+	await _wait(d)
+	if not alive:
+		return
+	t.on_strike = _shake.bind(0.5)
+	var dive: Tween = create_tween().set_parallel(true)
+	dive.tween_property(self, "_hover", 1.6, 0.3)
+	dive.tween_property(self, "global_position:x", from.x + dir.x * length, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	dive.tween_property(self, "global_position:z", from.z + dir.z * length, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await dive.finished
+	global_position = Arena.clamp_inside(global_position, Arena.LIMIT - 1.5)
+	var climb: Tween = create_tween()
+	climb.tween_property(self, "_hover", float(cfg.get("hover", 4.6)), 0.8)
+	await _wait(0.9)
+
+# Phase 2: a sweep in each direction, then a fireball volley.
+func _atk_inferno() -> void:
+	await _atk_fire_sweep()
+	if not _ok():
+		return
+	await _atk_fire_sweep()
+	if not _ok():
+		return
+	await _atk_fireballs()

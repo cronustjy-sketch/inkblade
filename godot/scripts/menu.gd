@@ -63,20 +63,20 @@ func _on_raid() -> void:
 	get_tree().change_scene_to_file(RAID_SCENE)
 
 func _draw_scenery(canvas: Control) -> void:
-	var size: Vector2 = canvas.size
-	canvas.draw_circle(Vector2(size.x * 0.78, size.y * 0.24), size.y * 0.13, Color("fff2a8"))
+	var canvas_size: Vector2 = canvas.size
+	canvas.draw_circle(Vector2(canvas_size.x * 0.78, canvas_size.y * 0.24), canvas_size.y * 0.13, Color("fff2a8"))
 	var layers: Array = [[Color("9bd6b0"), 0.62, 0.10, 3.0], [Color("6cbf74"), 0.72, 0.09, 4.5], [Color("49a25a"), 0.84, 0.07, 6.0]]
 	for i in layers.size():
 		var layer: Array = layers[i]
 		var pts := PackedVector2Array()
 		var steps: int = 60
 		for s in steps + 1:
-			var x: float = size.x * s / steps
-			var y: float = size.y * (layer[1] - layer[2] * (0.5 + 0.5 * sin(x / size.x * layer[3] * TAU * 0.5 + i * 1.7)))
+			var x: float = canvas_size.x * s / steps
+			var y: float = canvas_size.y * (layer[1] - layer[2] * (0.5 + 0.5 * sin(x / canvas_size.x * layer[3] * TAU * 0.5 + i * 1.7)))
 			pts.append(Vector2(x, y))
 		var poly := PackedVector2Array(pts)
-		poly.append(Vector2(size.x, size.y))
-		poly.append(Vector2(0.0, size.y))
+		poly.append(Vector2(canvas_size.x, canvas_size.y))
+		poly.append(Vector2(0.0, canvas_size.y))
 		canvas.draw_colored_polygon(poly, layer[0])
 		canvas.draw_polyline(pts, Color("1b3a2a"), 4.0, true)
 
@@ -103,10 +103,10 @@ func _flat(bg: Color) -> StyleBoxFlat:
 	s.anti_aliasing = true
 	return s
 
-func _outlined(text: String, size: int, color: Color, outline: int) -> Label:
+func _outlined(text: String, font_size: int, color: Color, outline: int) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", color)
 	l.add_theme_color_override("font_outline_color", OUTLINE)
 	l.add_theme_constant_override("outline_size", outline)
