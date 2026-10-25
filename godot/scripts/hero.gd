@@ -251,3 +251,11 @@ func _bar_quad(size: Vector2, color: Color, z: float) -> MeshInstance3D:
 	mat.billboard_keep_scale = true
 	mi.material_override = mat
 	return mi
+
+func heal(amount: float) -> void:
+	hp = minf(max_hp, hp + amount)
+	_fill.scale.x = maxf(hp / max_hp, 0.001)
+	_fill.position.x = -0.47 * (1.0 - hp / max_hp)
+
+func is_big() -> bool:
+	return false

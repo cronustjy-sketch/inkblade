@@ -60,6 +60,9 @@ func _build_castle(color: Color, toward_enemy: float) -> void:
 	Ink.cyl(self, 0.06, 0.06, 3.0, Vector3(0, 6.9, 0), Ink.INK, Vector3.ZERO, 0.03)
 	Ink.box(self, Vector3(1.5, 0.9, 0.06), Vector3(0.78 * toward_enemy, 7.9, 0), color, Vector3.ZERO, 0.06)
 
+func is_castle() -> bool:
+	return true
+
 func take_damage(amount: float) -> void:
 	if hp <= 0.0:
 		return

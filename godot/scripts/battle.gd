@@ -28,6 +28,7 @@ var cam_x: float = 6.0
 var energy: float = 0.0
 var hud: CanvasLayer
 var hero: Node3D
+var spawner: Node
 var _over: bool = false
 
 func _ready() -> void:
@@ -65,7 +66,7 @@ func _ready() -> void:
 	add_child(hero)
 	cam_x = hero.position.x
 
-	var spawner: Node = SPAWNER_SCRIPT.new()
+	spawner = SPAWNER_SCRIPT.new()
 	add_child(spawner)
 	spawner.setup(self, level)
 
@@ -108,7 +109,7 @@ func player_pop() -> int:
 			total += u.pop
 	return total
 
-func spawn_unit(team: int, key: String, stat_mult: float = 1.0) -> void:
+func spawn_unit(team: int, key: String, stat_mult: float = 1.0) -> Node3D:
 	var u: Node3D = UNIT_SCENE.instantiate()
 	var own: Node3D = player_castle if team == 0 else enemy_castle
 	var foe: Node3D = enemy_castle if team == 0 else player_castle
@@ -117,6 +118,7 @@ func spawn_unit(team: int, key: String, stat_mult: float = 1.0) -> void:
 	var side: float = 1.0 if team == 0 else -1.0
 	var z_spread: float = 0.4 if UnitData.UNITS[key]["pop"] >= 3 else 1.0
 	u.position = Vector3(own.position.x + side * 4.2, 0.0, randf_range(-z_spread, z_spread))
+	return u
 
 func _on_spawn_requested(key: String) -> void:
 	var d: Dictionary = UnitData.UNITS[key]

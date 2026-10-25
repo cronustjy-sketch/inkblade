@@ -4,6 +4,7 @@ const Levels := preload("res://data/levels.gd")
 
 var battle: Node3D
 var level: int = 1
+var enabled: bool = true
 var _timer: float = 0.0
 
 func setup(p_battle: Node3D, p_level: int) -> void:
@@ -12,6 +13,8 @@ func setup(p_battle: Node3D, p_level: int) -> void:
 	_timer = Levels.enemy_spawn_interval(level)
 
 func _process(delta: float) -> void:
+	if not enabled:
+		return
 	_timer -= delta
 	if _timer > 0.0:
 		return
