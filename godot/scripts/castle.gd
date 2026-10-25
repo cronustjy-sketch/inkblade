@@ -4,9 +4,12 @@ signal destroyed(team: int)
 
 enum Team { PLAYER, ENEMY }
 
+const Ink := preload("res://scripts/ink.gd")
 const BAR_WIDTH: float = 5.0
 const COLOR_PLAYER := Color("e8b44a")
 const COLOR_ENEMY := Color("de4b3f")
+const PARCHMENT := Color("efe6cf")
+const DOOR := Color("2b2118")
 
 @export var team: Team = Team.PLAYER
 @export var max_hp: float = 500.0
@@ -17,29 +20,45 @@ var _fill: MeshInstance3D
 func _ready() -> void:
 	hp = max_hp
 	var color: Color = COLOR_PLAYER if team == Team.PLAYER else COLOR_ENEMY
-
-	var body := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(5, 7, 7)
-	body.mesh = box
-	body.position.y = 3.5
-	body.material_override = _unshaded(color)
-	add_child(body)
+	var toward_enemy: float = 1.0 if team == Team.PLAYER else -1.0
+	_build_castle(color, toward_enemy)
 
 	var bar_root := Node3D.new()
-	bar_root.position = Vector3(0, 8.5, 0)
+	bar_root.position = Vector3(0, 11.0, 0)
 	add_child(bar_root)
-	bar_root.add_child(_bar_quad(Vector2(BAR_WIDTH, 0.5), Color("13161b"), 0.0))
-	_fill = _bar_quad(Vector2(BAR_WIDTH, 0.5), color, 0.01)
+	bar_root.add_child(_bar_quad(Vector2(BAR_WIDTH + 0.2, 0.7), Ink.INK, 0.0))
+	bar_root.add_child(_bar_quad(Vector2(BAR_WIDTH, 0.5), Color("3a3f48"), 0.01))
+	_fill = _bar_quad(Vector2(BAR_WIDTH, 0.5), color, 0.02)
 	bar_root.add_child(_fill)
 
 	var label := Label3D.new()
 	label.text = "我方城堡\nYour Castle" if team == Team.PLAYER else "敌方城堡\nEnemy Castle"
-	label.position = Vector3(0, 1.0, 0)
+	label.position = Vector3(0, 1.1, 0)
 	label.pixel_size = 0.012
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
 	bar_root.add_child(label)
+
+# About 6.4 m wide (x) and 6 m deep (z); the front faces the camera at +z.
+func _build_castle(color: Color, toward_enemy: float) -> void:
+	# Main wall.
+	Ink.box(self, Vector3(4.4, 5.0, 6.0), Vector3(0, 2.5, 0), PARCHMENT)
+	# Crenellations along the front and back edges.
+	for i in 5:
+		var x: float = -1.8 + 0.9 * i
+		for z: float in [2.7, -2.7]:
+			Ink.box(self, Vector3(0.55, 0.6, 0.55), Vector3(x, 5.3, z), PARCHMENT, Vector3.ZERO, 0.08)
+	# Two round towers at the front corners, with cone roofs in the team colour.
+	for side: float in [-1.0, 1.0]:
+		var tx: float = 2.2 * side
+		Ink.cyl(self, 0.95, 0.95, 7.0, Vector3(tx, 3.5, 3.0), PARCHMENT)
+		Ink.cyl(self, 0.0, 1.35, 2.2, Vector3(tx, 8.1, 3.0), color)
+	# Gate: dark door with an arched top, set into the front face.
+	Ink.box(self, Vector3(1.5, 2.0, 0.2), Vector3(0, 1.0, 3.05), DOOR)
+	Ink.cyl(self, 0.75, 0.75, 0.2, Vector3(0, 2.0, 3.05), DOOR, Vector3(90, 0, 0))
+	# Flag on a pole above the wall, streaming toward the enemy.
+	Ink.cyl(self, 0.06, 0.06, 3.0, Vector3(0, 6.9, 0), Ink.INK, Vector3.ZERO, 0.03)
+	Ink.box(self, Vector3(1.5, 0.9, 0.06), Vector3(0.78 * toward_enemy, 7.9, 0), color, Vector3.ZERO, 0.06)
 
 func take_damage(amount: float) -> void:
 	if hp <= 0.0:
@@ -60,14 +79,8 @@ func _bar_quad(size: Vector2, color: Color, z: float) -> MeshInstance3D:
 	quad.size = size
 	mi.mesh = quad
 	mi.position.z = z
-	var mat := _unshaded(color)
+	var mat := Ink.fill_mat(color)
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	mat.billboard_keep_scale = true
 	mi.material_override = mat
 	return mi
-
-func _unshaded(color: Color) -> StandardMaterial3D:
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = color
-	return mat

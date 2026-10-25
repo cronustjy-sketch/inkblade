@@ -35,4 +35,4 @@ team = 1
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.87, 0.5, 0, -0.5, 0.87, 6, 9, 16)
-fov = 55.0
+fov = 50.0
