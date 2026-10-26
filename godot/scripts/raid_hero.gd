@@ -60,6 +60,7 @@ var _dash_t: float = 0.0
 var _dash_hit: Array[Node] = []
 var _lock_t: float = 0.0 # skill cast animation lock
 var _flash_t: float = 0.0
+var _shadow: MeshInstance3D
 
 func _ready() -> void:
 	collision_layer = 2 # world = 1, hero = 2, bosses = 4
@@ -76,7 +77,8 @@ func _ready() -> void:
 	_model.scale = Vector3.ONE * MODEL_SCALE
 	_model.rotation_degrees.y = 180.0 # Mixamo models face +Z; the hero's forward is -Z
 	add_child(_model)
-	_materials = Toon.apply_model(_model, MODEL_SCALE, 0.03, Color.WHITE, 2.6)
+	_materials = Toon.apply_model(_model, MODEL_SCALE, 0.03, Color.WHITE, 1.25, 0.5, 1.5)
+	_shadow = Fx.blob_shadow(self, 1.1)
 	_anim = _model.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if _anim != null:
 		for anim_name: StringName in _anim.get_animation_list():
@@ -85,6 +87,8 @@ func _ready() -> void:
 	play("idle")
 
 func _physics_process(delta: float) -> void:
+	if _shadow != null:
+		Fx.place_shadow(_shadow, self)
 	_tick_timers(delta)
 	var forward := Vector3(-sin(cam_yaw), 0.0, -cos(cam_yaw))
 	var right := Vector3(cos(cam_yaw), 0.0, -sin(cam_yaw))
@@ -189,7 +193,9 @@ func cast(id: String) -> bool:
 			_lock_t = 0.5
 			play_fit("power", 0.5)
 			var reach: float = s["range"] / UnitData.PX_PER_M
-			Fx.slash_arc(get_parent(), global_position, facing, 150.0, reach, Color(0.7, 0.9, 1.0, 0.7))
+			Fx.slash_arc(get_parent(), global_position, facing, 150.0, reach, Color(0.7, 0.9, 1.0, 0.45))
+			Fx.slash_trail(get_parent(), global_position, facing, reach * 0.8, 170.0, 8.0, Color(0.6, 0.9, 1.0, 0.95))
+			_big_shake(0.45)
 			_hit_bosses(global_position, facing, reach, 150.0, s["damage"])
 		"dash":
 			_roll_dir = facing
@@ -254,7 +260,8 @@ func _check_impact() -> void:
 	_hit_pending = false
 	var reach: float = _atk_step["reach"]
 	var arc: float = _atk_step["arc"]
-	Fx.slash_arc(get_parent(), global_position, facing, arc, reach)
+	Fx.slash_arc(get_parent(), global_position, facing, arc, reach, Color(1, 1, 1, 0.3))
+	Fx.slash_trail(get_parent(), global_position, facing, reach * 0.85, arc * 1.1, [-28.0, 28.0, 82.0][_combo - 1])
 	if _hit_bosses(global_position, facing, reach, arc, _atk_step["damage"]) > 0 and _combo == COMBO.size():
 		var rig: Node = get_tree().get_first_node_in_group("raid_camera")
 		if rig != null:
@@ -274,7 +281,9 @@ func _hit_bosses(origin: Vector3, dir: Vector3, reach: float, arc: float, damage
 			continue
 		b.take_hit(damage, global_position)
 		var spot: Vector3 = b.global_position + Vector3(randf_range(-0.6, 0.6), b.hit_height, randf_range(-0.6, 0.6))
-		Fx.spark(get_parent(), spot)
+		Fx.hit_burst(get_parent(), spot, Color("fff2a8"), 1.0 + damage / 60.0)
+		if damage >= 40.0:
+			_big_shake(0.35)
 		Fx.popup(get_parent(), spot + Vector3(0, 0.6, 0), "%d" % int(damage), Color("fff2a8"))
 		count += 1
 	return count
@@ -292,7 +301,7 @@ func _dash_strike() -> void:
 			_dash_hit.append(b)
 			b.take_hit(dmg, global_position)
 			var spot: Vector3 = b.global_position + Vector3(0, b.hit_height, 0)
-			Fx.spark(get_parent(), spot)
+			Fx.hit_burst(get_parent(), spot)
 			Fx.popup(get_parent(), spot + Vector3(0, 0.6, 0), "%d" % int(dmg), Color("fff2a8"))
 
 func _rain(s: Dictionary) -> void:
@@ -380,3 +389,8 @@ func revive() -> void:
 	_current = ""
 	play("idle")
 	damaged.emit(-1.0)
+
+func _big_shake(amount: float) -> void:
+	var rig: Node = get_tree().get_first_node_in_group("raid_camera")
+	if rig != null:
+		rig.shake = maxf(rig.shake, amount)

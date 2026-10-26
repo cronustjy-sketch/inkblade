@@ -1,11 +1,14 @@
 extends RefCounted
 
 # Toon (cel) shading with thick black outlines for the 3D raid mode, cheap enough for integrated GPUs:
-# unshaded 3-band lighting from one fixed direction (no real lights or shadows) plus an inverted-hull outline pass.
+# 3-band lighting from the arena's directional light direction (no real-time shadows), a gamma lift + saturation
+# boost so dark textures turn colourful, and an inverted-hull outline pass.
 
 const LIGHT_DIR := Vector3(0.45, 0.85, 0.35)
 const INK := Color(0.04, 0.04, 0.07)
 
+# //ALPHA is replaced by "ALPHA = alpha;" in the fade variant (used for walls and pillars that fade out when
+# they block the camera); plain characters keep the cheaper opaque pipeline.
 const TOON_SHADER: String = """
 shader_type spatial;
 render_mode unshaded, cull_disabled;
@@ -14,8 +17,12 @@ uniform vec4 albedo : source_color = vec4(1.0);
 uniform bool use_tex = false;
 uniform vec3 light_dir = vec3(0.45, 0.85, 0.35);
 uniform float flash = 0.0;
-uniform float brightness = 1.0;
 uniform vec4 flash_color : source_color = vec4(1.0);
+uniform float brightness = 1.0;
+uniform float lift = 1.0;
+uniform float saturation = 1.0;
+uniform float rim = 0.0;
+uniform float alpha = 1.0;
 varying vec3 wnormal;
 void vertex() {
 	wnormal = normalize(mat3(MODEL_MATRIX) * NORMAL);
@@ -25,11 +32,21 @@ void fragment() {
 	if (use_tex) {
 		c *= texture(albedo_tex, UV);
 	}
-	float nl = dot(normalize(wnormal), normalize(light_dir));
-	float band = nl > 0.3 ? 1.0 : (nl > -0.25 ? 0.8 : 0.62);
-	vec3 col = min(c.rgb * brightness, vec3(1.0)) * band;
+	vec3 base = pow(max(c.rgb, vec3(0.0)), vec3(lift)) * brightness;
+	float grey = dot(base, vec3(0.299, 0.587, 0.114));
+	base = mix(vec3(grey), base, saturation);
+	vec3 n = normalize(wnormal);
+	if (!FRONT_FACING) {
+		n = -n;
+	}
+	float nl = dot(n, normalize(light_dir));
+	float band = nl > 0.35 ? 1.08 : (nl > -0.2 ? 0.86 : 0.66);
+	vec3 col = clamp(base * band, vec3(0.0), vec3(1.0));
+	float fres = pow(1.0 - clamp(dot(n, vec3(0.0, 0.0, 1.0)), 0.0, 1.0), 3.0);
+	col = mix(col, vec3(1.0), rim * step(0.55, fres) * 0.6);
 	col = mix(col, flash_color.rgb, flash);
 	ALBEDO = col;
+	//ALPHA
 }
 """
 
@@ -38,47 +55,63 @@ shader_type spatial;
 render_mode unshaded, cull_front;
 uniform float width = 0.03;
 uniform vec4 color : source_color = vec4(0.04, 0.04, 0.07, 1.0);
+uniform float alpha = 1.0;
 void vertex() {
 	VERTEX += NORMAL * width;
 }
 void fragment() {
 	ALBEDO = color.rgb;
+	//ALPHA
 }
 """
 
 static var _toon_shader: Shader
 static var _outline_shader: Shader
+static var _toon_fade: Shader
+static var _outline_fade: Shader
 
 static func _shaders() -> void:
-	if _toon_shader == null:
-		_toon_shader = Shader.new()
-		_toon_shader.code = TOON_SHADER
-		_outline_shader = Shader.new()
-		_outline_shader.code = OUTLINE_SHADER
+	if _toon_shader != null:
+		return
+	_toon_shader = Shader.new()
+	_toon_shader.code = TOON_SHADER
+	_outline_shader = Shader.new()
+	_outline_shader.code = OUTLINE_SHADER
+	_toon_fade = Shader.new()
+	_toon_fade.code = TOON_SHADER.replace("//ALPHA", "ALPHA = alpha;").replace("render_mode unshaded, cull_disabled;", "render_mode unshaded, cull_disabled, depth_draw_always;")
+	_outline_fade = Shader.new()
+	_outline_fade.code = OUTLINE_SHADER.replace("//ALPHA", "ALPHA = alpha;")
 
-static func outline_material(width: float, color: Color = INK) -> ShaderMaterial:
+static func outline_material(width: float, color: Color = INK, fade: bool = false) -> ShaderMaterial:
 	_shaders()
 	var m := ShaderMaterial.new()
-	m.shader = _outline_shader
+	m.shader = _outline_fade if fade else _outline_shader
 	m.set_shader_parameter("width", width)
 	m.set_shader_parameter("color", color)
 	return m
 
 # A flat-colour toon material, optionally with an outline pass (width in the mesh's local units).
-static func flat(color: Color, outline_width: float = 0.05) -> ShaderMaterial:
+static func flat(color: Color, outline_width: float = 0.05, fade: bool = false) -> ShaderMaterial:
 	_shaders()
 	var m := ShaderMaterial.new()
-	m.shader = _toon_shader
+	m.shader = _toon_fade if fade else _toon_shader
 	m.set_shader_parameter("albedo", color)
 	m.set_shader_parameter("light_dir", LIGHT_DIR)
 	if outline_width > 0.0:
-		m.next_pass = outline_material(outline_width)
+		m.next_pass = outline_material(outline_width, INK, fade)
 	return m
+
+# Sets the see-through amount of a fade material (and its outline pass).
+static func set_alpha(m: ShaderMaterial, value: float) -> void:
+	m.set_shader_parameter("alpha", value)
+	if m.next_pass is ShaderMaterial:
+		(m.next_pass as ShaderMaterial).set_shader_parameter("alpha", value)
 
 # Replaces every material under `root` with a toon version of itself (keeps the albedo texture / colour) plus an
 # outline. world_scale is the node scale applied to the model, so the outline stays `outline_world` metres thick.
-# Returns the toon materials so callers can flash them on hit.
-static func apply_model(root: Node, world_scale: float, outline_world: float = 0.035, tint: Color = Color.WHITE, brightness: float = 1.0) -> Array[ShaderMaterial]:
+# `lift` < 1 brightens dark textures, `saturation` > 1 makes them more colourful. Returns the toon materials so
+# callers can flash them on hit.
+static func apply_model(root: Node, world_scale: float, outline_world: float = 0.035, tint: Color = Color.WHITE, brightness: float = 1.0, lift: float = 0.55, saturation: float = 1.45) -> Array[ShaderMaterial]:
 	_shaders()
 	var made: Array[ShaderMaterial] = []
 	for mi: Node in root.find_children("*", "MeshInstance3D", true, false):
@@ -91,6 +124,9 @@ static func apply_model(root: Node, world_scale: float, outline_world: float = 0
 			toon.shader = _toon_shader
 			toon.set_shader_parameter("light_dir", LIGHT_DIR)
 			toon.set_shader_parameter("brightness", brightness)
+			toon.set_shader_parameter("lift", lift)
+			toon.set_shader_parameter("saturation", saturation)
+			toon.set_shader_parameter("rim", 0.0)
 			var color: Color = Color.WHITE
 			if src is BaseMaterial3D:
 				var base: BaseMaterial3D = src

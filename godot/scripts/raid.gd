@@ -5,6 +5,7 @@ extends Node3D
 # `training = true` (set before adding to the tree) replaces the ladder with a training dummy; used by tests.
 
 const Arena := preload("res://scripts/raid_arena.gd")
+const Toon := preload("res://scripts/toon.gd")
 const HeroScript := preload("res://scripts/raid_hero.gd")
 const CameraScript := preload("res://scripts/raid_camera.gd")
 const HudScript := preload("res://scripts/raid_hud.gd")
@@ -48,7 +49,9 @@ func _ready() -> void:
 	rig.add_to_group("raid_camera")
 	add_child(rig)
 	rig.target = hero
+	rig.arena = arena
 	rig.global_position = hero.position + Vector3(0, 1.5, 0)
+	rig._focus = rig.global_position
 	rig.camera.make_current()
 
 	hud = CanvasLayer.new()
@@ -99,6 +102,11 @@ func _environment() -> void:
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color.WHITE
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 1.0
+	sun.shadow_enabled = false
+	add_child(sun)
+	sun.look_at_from_position(Vector3.ZERO, -Toon.LIGHT_DIR, Vector3.UP)
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -123,8 +131,9 @@ func _start_fight(index: int) -> void:
 	hero.rotation.y = 0.0
 	hero.controls_enabled = false
 	rig.yaw = 0.0
-	rig.pitch = deg_to_rad(13.0) if RaidData.BOSSES[index]["flying"] else deg_to_rad(22.0)
-	rig.distance = 12.0 if RaidData.BOSSES[index]["flying"] else 10.5
+	rig.reset_view()
+	rig.pitch = deg_to_rad(25.0)
+	rig.distance = 15.0 if RaidData.BOSSES[index]["flying"] else 14.0
 	hud.set_hero_hp(hero.hp, hero.max_hp)
 	hud.set_time(0.0)
 
@@ -139,6 +148,7 @@ func _start_fight(index: int) -> void:
 	boss.defeated.connect(_on_boss_defeated)
 	hud.show_boss(cfg["cn"], cfg["en"], boss.hp, boss.max_hp)
 	hud.set_best(RaidData.best_time(cfg["id"]))
+	rig.lock_target = boss
 
 	for n in [3, 2, 1]:
 		hud.set_center(str(n))
@@ -245,8 +255,11 @@ func _on_hero_damaged(amount: float) -> void:
 # RAID_WAIT=<seconds> waits longer before the shot; RAID_BOT=1 makes the hero auto-fight so boss moves show up.
 func _screenshot_later(path: String) -> void:
 	var act: String = OS.get_environment("RAID_ACT")
+	if OS.get_environment("RAID_LOCK") != "":
+		rig.locked = true
 	if OS.get_environment("RAID_LOOK") == "boss" and boss != null:
 		rig.target = boss
+		rig.locked = false
 		rig.distance = 10.0
 		rig.pitch = 0.1
 		rig.yaw = float(OS.get_environment("RAID_YAW")) if OS.get_environment("RAID_YAW") != "" else 0.0

@@ -38,6 +38,8 @@ var _current: String = ""
 var _clock: float = 0.0
 var _hover: float = 0.0
 var _scale_factor: float = 1.0
+var _shadow: MeshInstance3D
+var _orbit_angle: float = 0.0
 
 func setup(p_cfg: Dictionary, p_hero: Node3D) -> void:
 	cfg = p_cfg
@@ -46,7 +48,7 @@ func setup(p_cfg: Dictionary, p_hero: Node3D) -> void:
 	hp = max_hp
 	hit_radius = cfg["hit_radius"]
 	hit_height = cfg["hit_height"]
-	_scale_factor = float(cfg["scale"]) / 3.0
+	_scale_factor = clampf(float(cfg["scale"]) / 3.0, 0.8, 1.35)
 	_hover = cfg.get("hover", 0.0)
 
 func _ready() -> void:
@@ -68,13 +70,17 @@ func _ready() -> void:
 	_model.scale = Vector3.ONE * float(cfg["scale"])
 	_model.rotation_degrees.y = cfg["yaw"]
 	add_child(_model)
-	_materials = Toon.apply_model(_model, float(cfg["scale"]), 0.03, Color.WHITE, cfg.get("brightness", 1.0))
+	_materials = Toon.apply_model(_model, float(cfg["scale"]), 0.035, Color.WHITE, cfg.get("brightness", 1.2))
+	_shadow = Fx.blob_shadow(get_parent() if get_parent() != null else self, hit_radius * 0.95)
 	_anim = _model.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if _anim != null:
 		for anim_name: StringName in _anim.get_animation_list():
 			if String(anim_name) in ["idle", "walk", "run"]:
 				_anim.get_animation(anim_name).loop_mode = Animation.LOOP_LINEAR
 	_set_anim("idle")
+	tree_exiting.connect(func() -> void:
+		if _shadow != null and is_instance_valid(_shadow):
+			_shadow.queue_free())
 	hp_changed.emit(hp, max_hp, false)
 
 # ---------- hits ----------
@@ -83,8 +89,8 @@ func take_hit(amount: float, _from: Vector3) -> void:
 	if not alive or _invulnerable:
 		return
 	hp = maxf(0.0, hp - amount)
-	_flash_t = 0.09
-	Toon.set_flash(_materials, 0.65)
+	_flash_t = 0.12
+	Toon.set_flash(_materials, 0.9, Color.WHITE)
 	hp_changed.emit(hp, max_hp, phase == 2)
 	if hp <= 0.0:
 		_die()
@@ -111,6 +117,9 @@ func _die() -> void:
 
 func _physics_process(delta: float) -> void:
 	_clock += delta
+	if _shadow != null and is_instance_valid(_shadow):
+		Fx.place_shadow(_shadow, self, maxf(global_position.y - 0.0, 0.0))
+		_shadow.visible = alive
 	if _flash_t > 0.0:
 		_flash_t -= delta
 		if _flash_t <= 0.0:
@@ -140,6 +149,22 @@ func _physics_process(delta: float) -> void:
 	# Chase until within reach, always turning to face the hero.
 	if rel.length() > 0.01:
 		rotation.y = lerp_angle(rotation.y, atan2(-rel.x, -rel.z), 1.0 - exp(-5.0 * delta))
+	if cfg.has("orbit"):
+		# Flyer: circles the hero at a fixed radius instead of standing off.
+		_orbit_angle += delta * 0.55 * speed_mult
+		var ring := Vector3(cos(_orbit_angle), 0.0, sin(_orbit_angle)) * float(cfg["orbit"])
+		var goal := Vector3(hero.global_position.x + ring.x, 0.0, hero.global_position.z + ring.z)
+		goal = Arena.clamp_inside(goal, Arena.LIMIT - 3.0)
+		var to_goal: Vector3 = Vector3(goal.x - global_position.x, 0.0, goal.z - global_position.z)
+		var spd: float = minf(to_goal.length() * 3.0, float(cfg["speed"]) * 2.4 * speed_mult)
+		var move_dir: Vector3 = to_goal.normalized() if to_goal.length() > 0.05 else Vector3.ZERO
+		velocity.x = move_dir.x * spd
+		velocity.z = move_dir.z * spd
+		move_and_slide()
+		_cooldown -= delta
+		if _cooldown <= 0.0:
+			_begin_attack()
+		return
 	var stop_at: float = float(cfg.get("keep", hit_radius + 2.0))
 	if dist > stop_at:
 		var dir: Vector3 = rel.normalized()
@@ -546,6 +571,8 @@ func _atk_fire_sweep() -> void:
 	var origin: Vector3 = Vector3(global_position.x, 0.0, global_position.z)
 	var base: Vector3 = forward()
 	_play_fit("slash", steps * 0.2 + 0.6)
+	if cfg["flying"]:
+		create_tween().tween_property(self, "_hover", 3.4, 0.5)
 	for i in steps:
 		if not alive:
 			return
@@ -555,6 +582,8 @@ func _atk_fire_sweep() -> void:
 		t.on_strike = _flame.bind(mouth, dir, 24.0, 0.25)
 		await _wait(0.2)
 	await _wait(_delay(0.85) + 0.5)
+	if cfg["flying"]:
+		create_tween().tween_property(self, "_hover", float(cfg.get("hover", 6.0)), 0.8)
 
 func hover_height() -> float:
 	return global_position.y
@@ -613,7 +642,7 @@ func _atk_dive() -> void:
 	await dive.finished
 	global_position = Arena.clamp_inside(global_position, Arena.LIMIT - 1.5)
 	var climb: Tween = create_tween()
-	climb.tween_property(self, "_hover", float(cfg.get("hover", 4.6)), 0.8)
+	climb.tween_property(self, "_hover", float(cfg.get("hover", 6.0)), 0.8)
 	await _wait(0.9)
 
 # Phase 2: a sweep in each direction, then a fireball volley.

@@ -185,15 +185,18 @@ func _build_top() -> void:
 	name_row.add_child(_boss_phase)
 	_boss_bar = _bar(RED, 26)
 	_boss_box.add_child(_boss_bar)
-	_best_label = _outlined("", 14, Color("ffe9a8"), 4)
-	_best_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_boss_box.add_child(_best_label)
 
+	_best_label = _outlined("", 15, Color("ffe9a8"), 5)
+	_best_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_best_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_best_label.offset_right = -14.0
+	_best_label.offset_top = 84.0
+	_root.add_child(_best_label)
 	_timer_label = _outlined("0:00.00", 22, Color.WHITE, 6)
 	_timer_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	_timer_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_timer_label.offset_right = -14.0
-	_timer_label.offset_top = 56.0
+	_timer_label.offset_top = 52.0
 	_root.add_child(_timer_label)
 
 	_hint = _outlined("WASD 移动 Move · 空格 翻滚 Roll · 左键 攻击 Attack · Q E R F 技能 Skills · 滚轮 缩放 Zoom", 15, Color.WHITE, 5)
@@ -306,9 +309,9 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _move_stick(pos: Vector2) -> void:
-	var offset: Vector2 = (pos - _stick_center).limit_length(60.0)
-	_stick_knob.position = Vector2(43, 43) + offset
-	joystick = Vector2(offset.x, -offset.y) / 60.0
+	var stick_offset: Vector2 = (pos - _stick_center).limit_length(60.0)
+	_stick_knob.position = Vector2(43, 43) + stick_offset
+	joystick = Vector2(stick_offset.x, -stick_offset.y) / 60.0
 
 # ---------- widgets ----------
 
