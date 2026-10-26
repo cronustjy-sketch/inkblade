@@ -15,6 +15,7 @@ signal next_level_requested
 signal map_requested
 
 const UnitData := preload("res://data/units.gd")
+const InkFont := preload("res://scripts/inkfont.gd")
 const SpriteMeta := preload("res://data/sprite_meta.gd")
 const OUTLINE := Color("0d0d12")
 const GOLD := Color("f2b632")
@@ -172,6 +173,7 @@ func show_result(won: bool, level: int, has_next: bool) -> void:
 	panel.add_child(box)
 
 	var title: Label = _outlined("胜利" if won else "失败", 64, GOLD if won else RED, 8)
+	InkFont.apply(title)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	var title_en: Label = _outlined("Victory" if won else "Defeat", 24, Color.WHITE, 5)
@@ -211,6 +213,7 @@ func _build_top() -> void:
 	col.add_theme_constant_override("separation", 4)
 	panel.add_child(col)
 	_level_label = _outlined("", 14, Color.WHITE, 4)
+	InkFont.apply(_level_label)
 	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_level_label)
 

@@ -2,6 +2,7 @@ extends Control
 
 # Main menu: the 2D campaign or the 3D Boss Raid.
 
+const InkFont := preload("res://scripts/inkfont.gd")
 const MAP_SCENE: String = "res://scenes/map.tscn"
 const RAID_SCENE: String = "res://scenes/raid.tscn"
 const OUTLINE := Color("0d0d12")
@@ -38,6 +39,7 @@ func _ready() -> void:
 	add_child(box)
 
 	var title: Label = _outlined("墨刃纪元", 88, Color.WHITE, 12)
+	InkFont.apply(title)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	var subtitle: Label = _outlined("Ink Blade Era", 32, GOLD, 8)

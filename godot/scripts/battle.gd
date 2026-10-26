@@ -6,10 +6,10 @@ const UnitData := preload("res://data/units.gd")
 const PLAYER_CASTLE_X: float = 0.0
 const ENEMY_CASTLE_X: float = 40.0
 const CAM_FOV: float = 24.0 # narrow lens + long distance = nearly flat side-on view
-const CAM_HEIGHT: float = 2.4
+const CAM_HEIGHT: float = 6.0
 const CAM_DISTANCE: float = 47.0
 const CAM_FOLLOW: float = 5.0
-const CAM_LOOK_Y: float = 2.4
+const CAM_LOOK_Y: float = 5.6 # looking above the ground puts the lane in the bottom third of the screen
 const CAM_MIN_X: float = 14.0
 const CAM_MAX_X: float = 26.0
 const ZOOM_MIN: float = 0.45 # hero close-up
@@ -19,6 +19,7 @@ const TILT_MIN: float = -0.15
 const TILT_MAX: float = 0.7
 const TILT_SPEED: float = 0.004
 const CASTLE_Z: float = 0.4 # the statue stands in front of the spawn point
+const LANES: Array[float] = [-2.0, -0.7, 0.6, 1.9, 3.2] # units spread over several lanes so the army looks like a crowd
 const CRUMBLE_DELAY: float = 1.8
 const IMPLEMENTED_SKILLS: Array[String] = ["slash", "dash", "rally", "rain", "special"]
 const Fx := preload("res://scripts/fx.gd")
@@ -184,9 +185,9 @@ func spawn_unit(team: int, key: String, stat_mult: float = 1.0) -> Node3D:
 		u.battle = self
 	add_child(u)
 	var side: float = 1.0 if team == 0 else -1.0
-	var z_spread: float = 0.4 if UnitData.UNITS[key]["pop"] >= 3 else 1.0
 	# Units come out from behind their statue (farther from the camera than the statue sprite).
-	u.position = Vector3(own.position.x + side * 0.3, 0.0, randf_range(-1.8, -1.1) * (z_spread / 1.0))
+	u.position = Vector3(own.position.x + side * 0.3, 0.0, -2.0)
+	u.lane_z = LANES[randi() % LANES.size()] if UnitData.UNITS[key]["pop"] < 3 else randf_range(0.2, 1.0)
 	return u
 
 func _on_spawn_requested(key: String) -> void:

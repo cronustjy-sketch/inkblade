@@ -8,13 +8,15 @@ extends Node
 
 const UnitData := preload("res://data/units.gd")
 const Levels := preload("res://data/levels.gd")
-const SHOT_DELAY: float = 5.0
+var SHOT_DELAY: float = float(OS.get_environment("INK_DELAY")) if OS.get_environment("INK_DELAY") != "" else 5.0
 const SHOT_DIR: String = "res://screenshots/"
+const Fx := preload("res://scripts/fx.gd")
 
 var battle: Node3D
 var _auto: bool = false
 var _elapsed: float = 0.0
 var _done: bool = false
+var _demo: bool = false
 var _damaged: bool = false
 var _crumbled: bool = false
 
@@ -31,6 +33,9 @@ func _process(delta: float) -> void:
 	if not _auto or _done:
 		return
 	_elapsed += delta
+	if OS.get_environment("INK_FXDEMO") != "" and not _demo and _elapsed > SHOT_DELAY - 0.14:
+		_demo = true
+		_fx_demo()
 	if not _damaged and OS.get_environment("INK_DAMAGE") != "" and _elapsed > 1.0:
 		_damaged = true
 		var c: Node3D = battle.enemy_castle
@@ -72,6 +77,16 @@ func _stage_fight() -> void:
 	var n: int = mini(mini(mine.size(), 6) + 2, 8)
 	for i in n:
 		var u: Node3D = battle.spawn_unit(0, mine[i % mine.size()])
-		u.position = Vector3(hx + 1.5 + i * 0.9, 0.0, randf_range(-1.0, 1.0))
+		u.position = Vector3(hx + 1.5 + i * 0.9, 0.0, u.lane_z)
 		var e: Node3D = battle.spawn_unit(1, foes[i % foes.size()], Levels.enemy_stat_mult(battle.level))
-		e.position = Vector3(hx + 7.0 + i * 0.9, 0.0, randf_range(-1.0, 1.0))
+		e.position = Vector3(hx + 7.0 + i * 0.9, 0.0, e.lane_z)
+
+# INK_FXDEMO=1: fires one of each ink effect in front of the hero shortly before the screenshot (visual check).
+func _fx_demo() -> void:
+	const InkFx := preload("res://scripts/inkfx.gd")
+	var hx: float = battle.hero.position.x
+	InkFx.slash(battle, Vector3(hx + 3.0, 1.8, 0.5), 1.0, 3.6, -20.0, Color("f2b632"))
+	InkFx.slash(battle, Vector3(hx + 7.5, 1.8, 0.5), -1.0, 3.6, -20.0, Color("e0463b"))
+	InkFx.hit_splash(battle, Vector3(hx + 5.0, 1.6, 0.5), 1.2)
+	InkFx.death_burst(battle, Vector3(hx + 10.0, 0.0, 0.6), 1.3)
+	Fx.slash_wave(battle, Vector3(hx + 1.0, 0.0, 1.6), 1.0, 6.0)

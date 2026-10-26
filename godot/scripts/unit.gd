@@ -4,6 +4,7 @@ const UnitData := preload("res://data/units.gd")
 const StickmanScript := preload("res://scripts/stickman.gd")
 const ProjectileScript := preload("res://scripts/projectile.gd")
 const Fx := preload("res://scripts/fx.gd")
+const InkFx := preload("res://scripts/inkfx.gd")
 const BossData := preload("res://data/bosses.gd")
 const ModelRigScript := preload("res://scripts/modelrig.gd")
 const SpriteRigScript := preload("res://scripts/spriterig.gd")
@@ -41,6 +42,8 @@ var _fill: MeshInstance3D
 var _rig: Node3D
 var _first_hit: bool = true
 var _kb_vel: float = 0.0
+var lane_z: float = 0.0 # the lane this unit walks in (it slides there from behind its statue)
+var _splash_cd: float = 0.0
 
 # stat_mult scales hp and atk (enemy level scaling).
 func setup(p_team: int, p_key: String, p_enemy_castle: Node3D, stat_mult: float = 1.0) -> void:
@@ -113,6 +116,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_cd_left -= delta * _haste()
+	global_position.z = move_toward(global_position.z, lane_z, 2.2 * delta)
+	_splash_cd -= delta
 	_apply_knockback(delta)
 	var is_healer: bool = data.has("heal")
 	var target: Node3D = _nearest_enemy()
@@ -239,8 +244,14 @@ func take_damage(amount: float) -> void:
 	if _rig.has_method("flash"):
 		_rig.flash()
 	_update_bar()
+	var body: float = _rig.height
 	if hp <= 0.0:
+		if not is_queued_for_deletion():
+			InkFx.death_burst(get_parent(), global_position, clampf(body / 2.6, 0.7, 2.6))
 		queue_free()
+	elif amount > 0.0 and _splash_cd <= 0.0:
+		_splash_cd = 0.12
+		InkFx.hit_splash(get_parent(), global_position + Vector3(0, body * 0.5, 0), clampf(body * 0.34, 0.6, 2.0))
 
 func heal(amount: float) -> void:
 	hp = minf(max_hp, hp + amount)
@@ -294,6 +305,11 @@ func _try_attack(target: Node3D) -> void:
 	elif data.has("aoe"):
 		_aoe_hit(target, dmg, knock)
 	else:
+		# Melee: an ink brush stroke sweeps across the target.
+		var facing: float = signf(target.global_position.x - global_position.x)
+		if facing == 0.0:
+			facing = _dir
+		InkFx.slash(get_parent(), global_position + Vector3(0, _rig.height * 0.55, 0), facing, clampf(_rig.height * 0.8, 1.6, 4.5), randf_range(-35.0, 15.0), Color("f2b632") if team == 0 else Color("e0463b"))
 		target.take_damage(dmg)
 		if knock > 0.0 and target.has_method("apply_knockback"):
 			target.apply_knockback(knock, global_position.x)

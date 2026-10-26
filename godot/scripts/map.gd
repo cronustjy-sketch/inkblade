@@ -3,6 +3,7 @@ extends Control
 # Level-select map: 20 ink-drawn stops along a winding path. Progress is stored by data/levels.gd.
 
 const Levels := preload("res://data/levels.gd")
+const InkFont := preload("res://scripts/inkfont.gd")
 const BossData := preload("res://data/bosses.gd")
 const BATTLE_SCENE: String = "res://scenes/battle.tscn"
 const PARCHMENT := Color("efe6cf")
@@ -37,6 +38,7 @@ func _ready() -> void:
 
 	var title := Label.new()
 	title.text = "墨刃纪元  Ink Blade Era"
+	InkFont.apply(title)
 	title.add_theme_font_size_override("font_size", 40)
 	title.add_theme_color_override("font_color", INK)
 	title.position = Vector2(30, 14)

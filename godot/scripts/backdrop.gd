@@ -207,7 +207,7 @@ func _build_props(theme: String, x_center: float) -> void:
 		sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 		sprite.alpha_scissor_threshold = 0.5
 		sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		sprite.position = Vector3(x, 0.0, rng.randf_range(-8.0, -4.0))
+		sprite.position = Vector3(x, 0.0, rng.randf_range(-16.0, -7.0))
 		add_child(sprite)
 
 # ---------- ground ----------
