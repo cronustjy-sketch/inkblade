@@ -6,6 +6,7 @@ extends Control
 # Screens that are not built yet (Gear / Shop / Armory) say so honestly; see FEATURES.md.
 
 const Kit := preload("res://scripts/ui_kit.gd")
+const GearView := preload("res://scripts/gear_view.gd")
 const Levels := preload("res://data/levels.gd")
 const Save := preload("res://scripts/save.gd")
 const StoryData := preload("res://data/story_data.gd")
@@ -100,7 +101,7 @@ func _show_main() -> void:
 	quick.add_theme_constant_override("separation", 14)
 	box.add_child(quick)
 	var items: Array = [
-		["装", "装备", "Gear", Color("e0463b"), func() -> void: _soon("装备", "Gear", "英雄、皮肤和装备还没有移植过来。", "Heroes, skins and gear are not ported yet.")],
+		["装", "装备", "Gear", Color("e0463b"), _open_gear],
 		["店", "商店", "Shop", Color("6cc070"), func() -> void: _soon("商店", "Shop", "商店（药水、技能、宠物）还没有移植过来。", "The shop (potions, spells, pets) is not ported yet.")],
 		["械", "军械库", "Armory", Color("8c93a3"), func() -> void: _soon("军械库", "Armory", "兵种强化还没有移植过来。", "Unit upgrades are not ported yet.")],
 		["设", "设置", "Settings", Color("5b9be6"), _show_settings],
@@ -405,3 +406,8 @@ func _draw_scenery(canvas: Control) -> void:
 		poly.append(Vector2(0.0, canvas_size.y))
 		canvas.draw_colored_polygon(poly, layer[0])
 		canvas.draw_polyline(pts, Color("1b3a2a"), 4.0, true)
+
+func _open_gear() -> void:
+	var view: Control = GearView.new()
+	_overlay.add_child(view)
+	view.closed.connect(func() -> void: view.queue_free())

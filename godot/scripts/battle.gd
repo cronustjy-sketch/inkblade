@@ -4,6 +4,7 @@ const Levels := preload("res://data/levels.gd")
 const Save := preload("res://scripts/save.gd")
 const BossData := preload("res://data/bosses.gd")
 const UnitData := preload("res://data/units.gd")
+const Progress := preload("res://data/progress.gd")
 const PLAYER_CASTLE_X: float = 0.0
 const ENEMY_CASTLE_X: float = 40.0
 const CAM_FOV: float = 24.0 # narrow lens + long distance = nearly flat side-on view
@@ -44,6 +45,9 @@ const MAP_SCENE: String = "res://scenes/map.tscn"
 var level: int = 1
 var cam_x: float = 6.0
 var energy: float = 0.0
+var mods: Dictionary = {} # permanent upgrades (data/progress.gd), read once per battle
+var max_pop: int = MAX_POP
+var wall_t: float = 0.0 # knight skill: army takes less damage while this runs
 var hud: CanvasLayer
 var hero: Node3D
 var spawner: Node
@@ -62,6 +66,9 @@ var _touches: Dictionary = {}
 var _over: bool = false
 
 func _ready() -> void:
+	mods = Progress.mods()
+	max_pop = int(mods["cap"])
+	energy = float(mods["start_energy"])
 	# Retry / Next level reload this scene, so the level lives in a static var.
 	var env_level: String = OS.get_environment("INK_LEVEL")
 	if env_level != "" and OS.is_debug_build():
@@ -77,8 +84,8 @@ func _ready() -> void:
 	player_castle.position = Vector3(PLAYER_CASTLE_X, 0.0, CASTLE_Z)
 	enemy_castle.position = Vector3(ENEMY_CASTLE_X, 0.0, CASTLE_Z)
 	# Castles set hp from max_hp in their own _ready, which already ran.
-	player_castle.max_hp = 500.0
-	player_castle.hp = 500.0
+	player_castle.max_hp = mods["base_hp"]
+	player_castle.hp = player_castle.max_hp
 	enemy_castle.max_hp = Levels.enemy_castle_hp(level)
 	enemy_castle.hp = enemy_castle.max_hp
 	player_castle.destroyed.connect(_on_castle_destroyed)
@@ -96,7 +103,7 @@ func _ready() -> void:
 
 	hud = HUD_SCENE.instantiate()
 	add_child(hud)
-	hud.setup(level, MAX_ENERGY, MAX_POP, _unlocked_skills())
+	hud.setup(level, MAX_ENERGY, max_pop, _unlocked_skills())
 	hud.skill_requested.connect(_on_skill_requested)
 	hud.order_requested.connect(set_order)
 	hud.ult_requested.connect(cast_ultimate)
@@ -105,6 +112,7 @@ func _ready() -> void:
 	hud.spawn_requested.connect(_on_spawn_requested)
 	hud.retry_requested.connect(_on_retry)
 	hud.next_level_requested.connect(_on_next_level)
+	hud.growth_picked.connect(Progress.add_growth)
 	hud.map_requested.connect(_on_map)
 
 	hero = HERO_SCENE.instantiate()
@@ -123,7 +131,8 @@ func _ready() -> void:
 		shot.setup(self)
 
 func _process(delta: float) -> void:
-	energy = minf(MAX_ENERGY, energy + ENERGY_REGEN * delta)
+	energy = minf(MAX_ENERGY, energy + float(mods["regen"]) * delta)
+	wall_t = maxf(0.0, wall_t - delta)
 	hud.update_state(energy, player_pop())
 
 	hud.update_skills(hero)
@@ -183,6 +192,8 @@ func spawn_unit(team: int, key: String, stat_mult: float = 1.0) -> Node3D:
 	var foe: Node3D = enemy_castle if team == 0 else player_castle
 	u.setup(team, key, foe, stat_mult)
 	if team == 0:
+		u.apply_mods(mods)
+	if team == 0:
 		u.battle = self
 	add_child(u)
 	var side: float = 1.0 if team == 0 else -1.0
@@ -193,7 +204,7 @@ func spawn_unit(team: int, key: String, stat_mult: float = 1.0) -> Node3D:
 
 func _on_spawn_requested(key: String) -> void:
 	var d: Dictionary = UnitData.UNITS[key]
-	if energy < d["cost"] or player_pop() + int(d["pop"]) > MAX_POP:
+	if energy < d["cost"] or player_pop() + int(d["pop"]) > max_pop:
 		return
 	energy -= d["cost"]
 	spawn_unit(0, key)
@@ -203,14 +214,20 @@ func _on_castle_destroyed(team: int) -> void:
 		return
 	_over = true
 	var won: bool = team == 1
+	var first: bool = won and level > Levels.highest_cleared()
+	var reward: int = 10
 	if won:
+		var frac: float = player_castle.hp / player_castle.max_hp
+		var stars: int = 3 if frac > 0.7 else (2 if frac > 0.35 else 1)
+		reward = Progress.win_reward(level, first, stars, BossData.has_boss(level))
 		Levels.mark_cleared(level)
+	Progress.add_coins(reward)
 	# Let the statue crumble on screen before the result panel pauses the game.
 	await get_tree().create_timer(CRUMBLE_DELAY).timeout
 	if not is_inside_tree():
 		return
 	get_tree().paused = true
-	hud.show_result(won, level, level < Levels.MAX_LEVEL)
+	hud.show_result(won, level, level < Levels.MAX_LEVEL, reward, first)
 
 func _on_retry() -> void:
 	get_tree().paused = false
@@ -367,7 +384,7 @@ func _pick_unit_at(screen_pos: Vector2) -> void:
 
 func add_ink(amount: float, from_hero: bool = true) -> void:
 	var rate: float = UnitData.INK_PER_DAMAGE_HERO if from_hero else UnitData.INK_PER_DAMAGE_ARMY
-	ink = minf(UnitData.ULT_MAX, ink + amount * rate)
+	ink = minf(UnitData.ULT_MAX, ink + amount * rate * float(mods["ink"]))
 
 # Screen-wide strike: everything in view takes heavy damage.
 func cast_ultimate() -> bool:

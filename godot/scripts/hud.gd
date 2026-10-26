@@ -13,8 +13,10 @@ signal ult_requested
 signal retry_requested
 signal next_level_requested
 signal map_requested
+signal growth_picked(key: String)
 
 const UnitData := preload("res://data/units.gd")
+const Progress := preload("res://data/progress.gd")
 const InkFont := preload("res://scripts/inkfont.gd")
 const SpriteMeta := preload("res://data/sprite_meta.gd")
 const OUTLINE := Color("0d0d12")
@@ -156,7 +158,7 @@ func flash() -> void:
 	tw.tween_property(rect, "color:a", 0.0, 0.5)
 	tw.tween_callback(rect.queue_free)
 
-func show_result(won: bool, level: int, has_next: bool) -> void:
+func show_result(won: bool, level: int, has_next: bool, coins: int = 0, pick_growth: bool = false) -> void:
 	var dim := ColorRect.new()
 	dim.color = Color(0.05, 0.07, 0.15, 0.6)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -186,10 +188,45 @@ func show_result(won: bool, level: int, has_next: bool) -> void:
 		var done: Label = _plain("恭喜通关！ All levels cleared!  —  Junyuan", 16, NAVY)
 		done.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(done)
+	if coins > 0:
+		var c: Label = _outlined("金币 Coins  +%d" % coins, 22, GOLD, 5)
+		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(c)
+	var buttons := VBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 10)
 	if won and has_next:
-		box.add_child(_result_button("下一关  Next Level", GOLD, next_level_requested))
-	box.add_child(_result_button("重试  Retry", SKY, retry_requested))
-	box.add_child(_result_button("地图  Map", CREAM, map_requested))
+		buttons.add_child(_result_button("下一关  Next Level", GOLD, next_level_requested))
+	buttons.add_child(_result_button("重试  Retry", SKY, retry_requested))
+	buttons.add_child(_result_button("地图  Map", CREAM, map_requested))
+	box.add_child(buttons)
+	if won and pick_growth:
+		buttons.visible = false
+		var pick: Label = _plain("首次通关：选择一条永久成长路线  First clear: pick a permanent upgrade", 16, NAVY)
+		pick.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(pick)
+		var cards := HBoxContainer.new()
+		cards.add_theme_constant_override("separation", 10)
+		box.add_child(cards)
+		for key: String in Progress.GROWTH_ORDER:
+			var g: Dictionary = Progress.GROWTH[key]
+			var card := Button.new()
+			card.focus_mode = Control.FOCUS_NONE
+			card.custom_minimum_size = Vector2(190, 120)
+			card.text = "%s %s
+Lv%d → Lv%d
+%s" % [g["cn"], g["en"], Progress.growth(key), Progress.growth(key) + 1, g["d_cn"]]
+			card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			card.add_theme_font_size_override("font_size", 14)
+			card.add_theme_color_override("font_color", OUTLINE)
+			card.add_theme_color_override("font_hover_color", OUTLINE)
+			card.add_theme_stylebox_override("normal", _flat(GOLD, OUTLINE, 5, 20, 8))
+			card.add_theme_stylebox_override("hover", _flat(GOLD.lightened(0.25), OUTLINE, 5, 20, 8))
+			card.pressed.connect(func() -> void:
+				growth_picked.emit(key)
+				pick.queue_free()
+				cards.queue_free()
+				buttons.visible = true)
+			cards.add_child(card)
 
 # ---------- layout ----------
 

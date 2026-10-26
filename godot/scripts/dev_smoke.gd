@@ -20,6 +20,7 @@ func _ready() -> void:
 	await _step9()
 	await _step10()
 	await _part3()
+	await _part6()
 	print("SMOKE DONE failures=%d" % failures)
 	get_tree().quit()
 
@@ -442,3 +443,72 @@ func _part3() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://smoke_save.cfg"))
 	Save.path = Save.PATH_DEFAULT
 	Save.reload()
+
+# Part 6: coins, growth, gear, heroes and their effect in a battle.
+func _part6() -> void:
+	get_tree().paused = false
+	const Progress := preload("res://data/progress.gd")
+	const Save := preload("res://scripts/save.gd")
+	Save.reset_all()
+	check("fresh save: 0 coins, blade hero, no growth", Progress.coins() == 0 and Progress.selected_hero() == "blade" and Progress.growth("str") == 0)
+	check("win reward follows the web formula", Progress.win_reward(5, true, 3, true) == 40 + 30 + 25 + 60 and Progress.win_reward(2, false, 1, false) == 15 + 10 + 10)
+	check("cannot buy a hero without coins", not Progress.buy_hero("knight") and not Progress.owns_hero("knight"))
+	Progress.add_coins(2000)
+	check("buying a hero spends its price", Progress.buy_hero("knight") and Progress.coins() == 1600 and Progress.owns_hero("knight"))
+	Progress.select_hero("knight")
+	check("a bought hero can be selected, an unowned one cannot", Progress.selected_hero() == "knight")
+	Progress.select_hero("titan")
+	check("an unowned hero cannot be selected", Progress.selected_hero() == "knight")
+	check("gear costs base x (level+1)", Progress.gear_cost("armor") == 120 and Progress.buy_gear("armor") and Progress.gear_cost("armor") == 240 and Progress.coins() == 1480)
+	for i in 4:
+		Progress.add_growth("str")
+	Progress.add_growth("def")
+	Progress.add_growth("cmd")
+	Progress.add_growth("cmd")
+	var m: Dictionary = Progress.mods()
+	check("mods: atk +60%, hp +15% and +8% armor", is_equal_approx(m["atk"], 1.6) and is_equal_approx(m["hp"], 1.15 * 1.08))
+	check("mods: cap is 50 + min(4, command) and regen 10 + 1.5 x command", int(m["cap"]) == 52 and is_equal_approx(m["regen"], 13.0))
+	check("mods: base hp 560", is_equal_approx(m["base_hp"], 560.0))
+
+	for id: String in Progress.HERO_ORDER:
+		Progress.set_value_for_test(id)
+		Levels.current_level = 12
+		battle.queue_free()
+		await get_tree().process_frame
+		battle = BATTLE.instantiate()
+		add_child(battle)
+		await wait(0.4)
+		var hero: Node3D = battle.hero
+		var spec: Dictionary = Progress.HEROES[id]
+		check("[%s] hero uses its own stats (hp %.0f)" % [id, hero.max_hp], absf(hero.max_hp - float(spec["hp"]) * float(Progress.mods()["hp"])) < 1.0 and hero.hero_id == id)
+		battle.spawn_unit(1, "soldier")
+		var foe: Node3D = get_tree().get_nodes_in_group("team_1")[0]
+		foe.position = Vector3(hero.position.x + 2.0, 0.0, 0.0)
+		check("[%s] G skill casts" % id, hero.cast("special"))
+		await wait(1.0)
+		battle.spawn_unit(0, "soldier")
+		var unit: Node3D = get_tree().get_nodes_in_group("team_0").back()
+		check("[%s] soldiers get the permanent upgrades (hp %.0f)" % [id, unit.max_hp], absf(unit.max_hp - 60.0 * float(Progress.mods()["hp"])) < 0.5)
+	check("army cap follows 统帅", battle.max_pop == 52 and absf(battle.player_castle.max_hp - 560.0) < 0.1)
+
+	# Victory screen: first clear offers the four growth cards, then the buttons.
+	var picked: Array = []
+	battle.hud.growth_picked.connect(func(k: String) -> void: picked.append(k))
+	battle.hud.show_result(true, 3, true, 120, true)
+	await wait(0.2)
+	var cards: int = 0
+	for b: Node in battle.hud.find_children("*", "Button", true, false):
+		if (b as Button).text.begins_with("力量") or (b as Button).text.begins_with("防御") or (b as Button).text.begins_with("速度") or (b as Button).text.begins_with("统帅"):
+			cards += 1
+			if cards == 1:
+				(b as Button).pressed.emit()
+	check("first-clear victory shows 4 growth cards and reports the pick", cards == 4 and picked == ["str"])
+	var gear_view: Control = load("res://scripts/gear_view.gd").new()
+	add_child(gear_view)
+	await wait(0.2)
+	for tab in ["gear", "growth", "heroes"]:
+		gear_view._show(tab)
+	check("gear screen builds all three tabs", gear_view.get_child_count() > 3)
+	gear_view.queue_free()
+	Progress.set_value_for_test("blade")
+	Save.reset_all()

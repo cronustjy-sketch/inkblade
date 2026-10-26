@@ -59,9 +59,9 @@ Legend: ✅ ported · ⚠️ partial (what exists / what is missing) · ❌ miss
 
 | Feature | Godot |
 |---|---|
-| **Upgrades 力量 / 防御 / 速度 / 统帅** (GROWTH: +15% atk, +15% hp & +60 base, +10% speed & shorter skill CD, +2 cap & +1.5 regen) | ❌ → part 6 |
-| **Heroes**: 金焰剑客 (free), 重甲骑士 (400), 疾影刺客 (500), 烈焰法师 (600), 巨力蛮王 (900) with stats and per-hero ex skill (旋风斩 / 钢铁壁垒 / 影袭 / 陨星术 / 震地) | ❌ → part 6 |
-| **Gear** (8 items, 5 levels): 精钢铠甲, 锋利兵刃, 疾行战靴, 统帅军旗, 坚固城墙, 精钢头盔, 墨玉护符, 战鼓 | ❌ → part 6 |
+| **Upgrades 力量 / 防御 / 速度 / 统帅** (first clear of a level lets you pick one on the victory screen) | ✅ `data/progress.gd`, same formulas as the web `mods()` |
+| **Heroes**: 金焰剑客 (free), 重甲骑士 (400), 疾影刺客 (500), 烈焰法师 (600), 巨力蛮王 (900) with stats and per-hero G skill | ✅ buy / select in 装备; stats scaled to the Godot hero, tinted sprites (own art ❌), G skills ported |
+| **Gear** (8 items, 5 levels): 精钢铠甲, 锋利兵刃, 疾行战靴, 统帅军旗, 坚固城墙, 精钢头盔, 墨玉护符, 战鼓 | ✅ bought with coins in 装备 → 装备 |
 | **Shop**: hero skins (金焰英雄, 暗影紫刃, 翡翠剑客, 白银骑士), army skins (苍蓝/紫晶/翠林军团), potions (能量/城墙/狂暴/疾风), spells, pets | ❌ → part 6 |
 | Coins 🪙 earned per level; gems 💎 per chapter | ❌ |
 | **Armory 军械库**: per-unit HP / ATK upgrade ×5, per-unit colours, preview | ❌ |

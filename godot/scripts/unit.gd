@@ -240,7 +240,10 @@ func _face(dx: float) -> void:
 		_rig.set_facing(right)
 
 func take_damage(amount: float) -> void:
-	hp -= amount * (1.0 - armor)
+	var taken: float = amount * (1.0 - armor)
+	if team == 0 and battle != null and battle.wall_t > 0.0:
+		taken *= 0.4
+	hp -= taken
 	if _rig.has_method("flash"):
 		_rig.flash()
 	_update_bar()
@@ -411,3 +414,11 @@ func _haste() -> float:
 	if team == 0 and battle != null and battle.rally_t > 0.0:
 		return UnitData.HERO_SKILLS["rally"]["haste"]
 	return 1.0
+
+# Permanent upgrades for the player's army (data/progress.gd): HP, attack, speed and helm damage reduction.
+func apply_mods(mods: Dictionary) -> void:
+	max_hp *= float(mods["hp"])
+	hp = max_hp
+	atk *= float(mods["atk"])
+	speed *= float(mods["spd"])
+	armor = 1.0 - (1.0 - armor) * (1.0 - float(mods["helm"]))

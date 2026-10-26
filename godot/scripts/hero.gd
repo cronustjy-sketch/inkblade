@@ -4,6 +4,7 @@ extends Node3D
 # Moves with the arrow keys (driven by battle.gd), auto-attacks the nearest enemy in range, casts skills.
 
 const UnitData := preload("res://data/units.gd")
+const Progress := preload("res://data/progress.gd")
 const Fx := preload("res://scripts/fx.gd")
 const SpriteRigScript := preload("res://scripts/spriterig.gd")
 const GOLD := Color("f2b632")
@@ -27,6 +28,9 @@ var cooldown: float = 0.6
 var facing: float = 1.0
 var skill_cd: Dictionary = {}
 var invincible_t: float = 0.0
+var hero_id: String = "blade"
+var armor: float = 0.0
+var _cd_total: Dictionary = {}
 
 var _cd_left: float = 0.0
 var _hits: int = 0
@@ -44,13 +48,16 @@ var _dash_hit: Array[Node3D] = []
 func setup(p_battle: Node3D, p_level: int) -> void:
 	battle = p_battle
 	level = p_level
-	var d: Dictionary = UnitData.HERO
-	max_hp = d["hp"]
+	hero_id = Progress.selected_hero()
+	var d: Dictionary = Progress.HEROES[hero_id]
+	var m: Dictionary = p_battle.mods
+	max_hp = float(d["hp"]) * float(m["hp"])
 	hp = max_hp
-	atk = d["atk"]
+	atk = float(d["atk"]) * float(m["atk"])
 	attack_range = d["range"] / UnitData.PX_PER_M
-	speed = d["speed"] / UnitData.PX_PER_M
+	speed = float(d["speed"]) / UnitData.PX_PER_M * float(m["spd"])
 	cooldown = d["cooldown"]
+	armor = float(d.get("armor", 0.0))
 
 func _ready() -> void:
 	add_to_group("team_0")
@@ -59,6 +66,8 @@ func _ready() -> void:
 	# Until the hero sheet is baked, borrow the footsoldier sprite.
 	_rig.setup("hero" if SpriteRigScript.has_sprite("hero") else "soldier", 0, speed, UnitData.HERO["sprite_h"], "gold")
 	add_child(_rig)
+	_rig.set_tint(Progress.HEROES[hero_id]["tint"])
+	_rig.scale = Vector3.ONE * float(Progress.HEROES[hero_id]["scale"])
 	_build_ring()
 	_bar = Node3D.new()
 	_bar.position.y = UnitData.HERO["sprite_h"] + 0.3
@@ -98,7 +107,7 @@ func can_cast(id: String) -> bool:
 	return _dead_t < 0.0 and level >= s["unlock"] and skill_cd.get(id, 0.0) <= 0.0
 
 func cooldown_fraction(id: String) -> float:
-	return skill_cd.get(id, 0.0) / UnitData.HERO_SKILLS[id]["cooldown"]
+	return skill_cd.get(id, 0.0) / maxf(_cd_total.get(id, 1.0), 0.01)
 
 func cast(id: String) -> bool:
 	if not can_cast(id):
@@ -113,16 +122,18 @@ func cast(id: String) -> bool:
 		"rain":
 			_cast_rain()
 		"special":
-			_cast_vortex()
+			_cast_ex()
 		_:
 			return false
-	skill_cd[id] = UnitData.HERO_SKILLS[id]["cooldown"]
+	var cd: float = _skill_cooldown(id)
+	skill_cd[id] = cd
+	_cd_total[id] = cd
 	return true
 
 func take_damage(amount: float) -> void:
 	if invincible_t > 0.0 or _dead_t >= 0.0:
 		return
-	hp -= amount
+	hp -= amount * (1.0 - armor)
 	_rig.flash()
 	_fill.scale.x = maxf(hp / max_hp, 0.001)
 	_fill.position.x = -0.47 * (1.0 - hp / max_hp)
@@ -140,12 +151,12 @@ func _cast_slash() -> void:
 	for u: Node3D in _enemies():
 		var ahead: float = (u.global_position.x - global_position.x) * facing
 		if ahead >= -0.5 and ahead <= reach:
-			u.take_damage(s["damage"])
+			u.take_damage(_skill_dmg(s["damage"]))
 			_dealt(s["damage"])
 	var castle: Node3D = battle.enemy_castle
 	var gap: float = (castle.global_position.x - global_position.x) * facing - CASTLE_HALF_WIDTH
 	if gap <= reach and gap > -CASTLE_HALF_WIDTH * 2.0 and castle.hp > 0.0:
-		castle.take_damage(s["damage"])
+		castle.take_damage(_skill_dmg(s["damage"]))
 		_dealt(s["damage"])
 	Fx.slash_wave(battle, global_position, facing, reach)
 	_play("power", 0.5)
@@ -243,12 +254,24 @@ func _auto_attack() -> void:
 		_rig.set_facing(facing > 0.0)
 	_cd_left = cooldown
 	_hits += 1
-	var crit_every: int = UnitData.HERO["crit_every"]
+	var spec: Dictionary = Progress.HEROES[hero_id]
 	var dmg: float = atk
-	if _hits % crit_every == 0:
+	if spec.has("crit"):
+		if randf() < float(spec["crit"]):
+			dmg *= 2.5
+	elif _hits % int(UnitData.HERO["crit_every"]) == 0:
 		dmg *= UnitData.HERO["crit_mult"]
 	target.take_damage(dmg)
 	_dealt(dmg)
+	if spec.has("splash") or spec.has("aoe"):
+		var radius: float = float(spec.get("splash", spec.get("aoe", 0.0))) / UnitData.PX_PER_M
+		for u: Node3D in _enemies():
+			if u != target and not u.flying and absf(u.global_position.x - target.global_position.x) <= radius:
+				u.take_damage(dmg * 0.6)
+				_dealt(dmg * 0.6)
+				if spec.has("aoe") and u.has_method("apply_knockback"):
+					u.apply_knockback(1.5, global_position.x)
+		Fx.ring(battle, target.global_position, radius, Color(spec["tint"]), 0.3)
 	_play("slash%d" % ((_hits - 1) % 3 + 1), 0.4)
 
 func _dealt(amount: float) -> void:
@@ -347,3 +370,71 @@ func _build_ring() -> void:
 	ring.scale = Vector3(1.0, 1.0, 0.3)
 	ring.position.y = 0.03
 	add_child(ring)
+
+# ---------- upgrades and per-hero skill ----------
+
+func _skill_dmg(base: float) -> float:
+	return base * float(battle.mods["skill_atk"])
+
+func _skill_cooldown(id: String) -> float:
+	var base: float = UnitData.HERO_SKILLS[id]["cooldown"]
+	if id == "special":
+		base = float(Progress.HEROES[hero_id]["ex_cd"])
+		return base * float(battle.mods["drum"])
+	return base * float(battle.mods["cd_slash"] if id == "slash" else battle.mods["cd_other"])
+
+# G: each hero has its own skill (web HERO_EX).
+func _cast_ex() -> void:
+	match hero_id:
+		"knight":
+			battle.wall_t = 5.0
+			Fx.ring(battle, global_position, 12.0, Color("9fb4d8"), 0.7)
+			_play("power", 0.6)
+		"assassin":
+			var far: Node3D = null
+			var far_gap: float = 0.0
+			for u: Node3D in _enemies():
+				var gap: float = absf(u.global_position.x - global_position.x)
+				if gap <= 14.0 and gap > far_gap:
+					far_gap = gap
+					far = u
+			if far != null:
+				position.x = clampf(far.global_position.x - signf(far.global_position.x - position.x) * 0.9, MIN_X, MAX_X)
+				var dmg: float = atk * 4.0
+				far.take_damage(dmg)
+				_dealt(dmg)
+				Fx.ring(battle, global_position, 3.0, Color("c8a0ff"), 0.4)
+			invincible_t = maxf(invincible_t, 0.6)
+			_play("slash1", 0.4)
+		"mage":
+			var targets: Array[Node3D] = _enemies()
+			targets.shuffle()
+			for i in mini(5, targets.size()):
+				var t: Node3D = targets[i]
+				get_tree().create_timer(0.15 * i + 0.4).timeout.connect(_meteor.bind(t))
+			_play("power", 0.6)
+		"titan":
+			var dmg_q: float = _skill_dmg(40.0)
+			for u: Node3D in _enemies():
+				if u.flying or absf(u.global_position.x - global_position.x) > 6.0:
+					continue
+				u.take_damage(dmg_q)
+				_dealt(dmg_q)
+				if u.has_method("apply_knockback"):
+					u.apply_knockback(2.5, global_position.x)
+			Fx.ring(battle, global_position, 6.0, Color("d8a070"), 0.6)
+			battle.shake_camera(0.6)
+			_play("power", 0.6)
+		_:
+			_cast_vortex()
+
+func _meteor(target: Node3D) -> void:
+	if not is_instance_valid(target) or target.is_queued_for_deletion():
+		return
+	var spot: Vector3 = target.global_position
+	var dmg: float = _skill_dmg(60.0)
+	for u: Node3D in _enemies():
+		if absf(u.global_position.x - spot.x) <= 2.5:
+			u.take_damage(dmg)
+			_dealt(dmg)
+	Fx.ring(battle, spot, 2.5, Color("ff9a6a"), 0.4)

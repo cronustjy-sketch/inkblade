@@ -24,6 +24,7 @@ var _attack_t: float = -1.0
 var _attack_dur: float = 0.35
 var _face: float = 1.0
 var _flash_t: float = 0.0
+var _tint: Color = Color.WHITE
 
 static func has_sprite(key: String) -> bool:
 	return SpriteMeta.META.has(key)
@@ -57,6 +58,9 @@ func setup(key: String, team: int, speed_mps: float, height_m: float = -1.0, var
 	add_child(shadow)
 
 	set_facing(team == 0)
+
+func set_tint(c: Color) -> void:
+	_tint = c
 
 func set_facing(right: bool) -> void:
 	_face = 1.0 if right else -1.0
@@ -93,7 +97,7 @@ func _process(delta: float) -> void:
 		_flash_t -= delta
 		_sprite.modulate = Color(1.0, 0.55, 0.55)
 	else:
-		_sprite.modulate = Color.WHITE
+		_sprite.modulate = _tint
 
 static func _get_shadow_mesh() -> CylinderMesh:
 	if _shadow_mesh == null:
