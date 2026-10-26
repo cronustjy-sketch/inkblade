@@ -17,12 +17,12 @@ func setup(p_battle: Node3D, p_level: int) -> void:
 		_boss_timer = BossData.SPAWN_DELAY
 
 func _process(delta: float) -> void:
-	if not enabled:
-		return
 	if _boss_timer >= 0.0:
 		_boss_timer -= delta
 		if _boss_timer < 0.0:
 			battle.spawn_boss()
+	if not enabled:
+		return
 	_timer -= delta
 	if _timer > 0.0:
 		return

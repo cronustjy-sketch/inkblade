@@ -496,3 +496,40 @@ static func _disc() -> ImageTexture:
 					img.set_pixel(x, y, Color.WHITE)
 		_disc_tex = ImageTexture.create_from_image(img)
 	return _disc_tex
+
+# Big boss intro banner: name (ink font) with a one-line taunt underneath, Chinese then English. Slides in and fades out.
+func show_boss_banner(name_cn: String, name_en: String, taunt_cn: String, taunt_en: String, duration: float = 3.2) -> void:
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.offset_top = 150.0
+	box.add_theme_constant_override("separation", 0)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(box)
+	var plate := PanelContainer.new()
+	plate.add_theme_stylebox_override("panel", _flat(Color(0.35, 0.05, 0.05, 0.9), OUTLINE, 6, 26, 14))
+	box.add_child(plate)
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 0)
+	plate.add_child(inner)
+	var t1: Label = _outlined(name_cn, 52, Color.WHITE, 9)
+	InkFont.apply(t1)
+	t1.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(t1)
+	var t2: Label = _outlined(name_en, 20, Color("ffd0c8"), 5)
+	t2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(t2)
+	var t3: Label = _outlined("「%s」" % taunt_cn, 22, GOLD, 5)
+	t3.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(t3)
+	var t4: Label = _outlined(taunt_en, 15, Color("fff0c0"), 4)
+	t4.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(t4)
+	box.modulate.a = 0.0
+	box.position.y -= 40.0
+	var tw: Tween = box.create_tween()
+	tw.tween_property(box, "modulate:a", 1.0, 0.25)
+	tw.parallel().tween_property(box, "position:y", box.position.y + 40.0, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(duration)
+	tw.tween_property(box, "modulate:a", 0.0, 0.6)
+	tw.tween_callback(box.queue_free)

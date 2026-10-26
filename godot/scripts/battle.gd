@@ -1,6 +1,7 @@
 extends Node3D
 
 const Levels := preload("res://data/levels.gd")
+const Save := preload("res://scripts/save.gd")
 const BossData := preload("res://data/bosses.gd")
 const UnitData := preload("res://data/units.gd")
 const PLAYER_CASTLE_X: float = 0.0
@@ -206,6 +207,8 @@ func _on_castle_destroyed(team: int) -> void:
 		Levels.mark_cleared(level)
 	# Let the statue crumble on screen before the result panel pauses the game.
 	await get_tree().create_timer(CRUMBLE_DELAY).timeout
+	if not is_inside_tree():
+		return
 	get_tree().paused = true
 	hud.show_result(won, level, level < Levels.MAX_LEVEL)
 
@@ -381,7 +384,7 @@ func cast_ultimate() -> bool:
 		enemy_castle.take_damage(UnitData.ULT_CASTLE_DAMAGE)
 	Fx.slash_wave(self, Vector3(cam_x - half, 2.0, 0.0), 1.0, half * 2.0)
 	hud.flash()
-	_shake_t = 0.5
+	shake_camera(0.5)
 	return true
 
 # ---------- boss ----------
@@ -396,6 +399,8 @@ func spawn_boss() -> void:
 	boss.position = Vector3(enemy_castle.position.x - 0.5, 0.0, -1.5)
 	var b: Dictionary = BossData.for_level(level)
 	hud.show_boss(b["name_cn"], b["name_en"], b["hp"])
+	hud.show_boss_banner(b["name_cn"], b["name_en"], b.get("taunt", ""), b.get("taunt_en", ""))
+	shake_camera(0.5)
 
 # Keeps the boss bar in sync and drops the castle ward when the boss dies.
 func _track_boss() -> void:
@@ -412,3 +417,8 @@ func _track_boss() -> void:
 func _on_map() -> void:
 	get_tree().paused = false
 	get_tree().change_scene_to_file(MAP_SCENE)
+
+# Screen shake, unless the player turned it off in Settings.
+func shake_camera(amount: float) -> void:
+	if Save.camera_shake():
+		_shake_t = maxf(_shake_t, amount)

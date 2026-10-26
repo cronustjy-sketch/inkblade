@@ -19,6 +19,7 @@ func _ready() -> void:
 	await _step8()
 	await _step9()
 	await _step10()
+	await _part3()
 	print("SMOKE DONE failures=%d" % failures)
 	get_tree().quit()
 
@@ -372,3 +373,72 @@ func _step10() -> void:
 	map.queue_free()
 
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://smoke_progress.cfg"))
+
+func _part3() -> void:
+	get_tree().paused = false # a finished fight earlier in this file may have left the tree paused
+	const Save := preload("res://scripts/save.gd")
+	const StoryData := preload("res://data/story_data.gd")
+	Save.path = "user://smoke_save.cfg"
+	Save.reload()
+	Save.reset_all()
+	check("story: 4 opening pages with English", StoryData.STORY.size() == 4 and StoryData.STORY_EN.size() == 4 and not StoryData.STORY_EN[0]["t"].is_empty())
+	check("story: chapters 1-60 loaded", StoryData.CHAPTERS.size() == 60 and StoryData.CHAPTERS[0]["n"] == 1)
+	check("story: chapter 1 and 2 dialogue exist", StoryData.CHS.has("1") and StoryData.CHS.has("2") and StoryData.CHS["1"].size() == 3)
+	check("story: chapter dialogue has English", not String(StoryData.CHS["2"][0]["en"]).is_empty())
+	check("chapter numbers follow the web game (10 levels each)", Levels.chapter_number(1) == 1 and Levels.chapter_number(10) == 1 and Levels.chapter_number(11) == 2 and Levels.chapter_number(20) == 2)
+	check("first-of-chapter levels are 1 and 11", Levels.is_first_of_chapter(1) and Levels.is_first_of_chapter(11) and not Levels.is_first_of_chapter(2))
+	check("nothing seen on a fresh save", not Save.intro_seen() and not Save.chapter_story_seen(1))
+	Save.mark_intro_seen()
+	Save.mark_chapter_story_seen(1)
+	Save.reload()
+	check("seen stories are saved and survive a reload", Save.intro_seen() and Save.chapter_story_seen(1) and not Save.chapter_story_seen(2))
+	Save.set_value("settings", "ink_effects", false)
+	check("settings are saved", not Save.ink_effects() and Save.camera_shake())
+	Save.set_value("settings", "ink_effects", true)
+
+	# Scenes build without errors.
+	var menu: Control = load("res://scenes/menu.tscn").instantiate()
+	add_child(menu)
+	await wait(0.3)
+	for fn in ["_show_play", "_show_modes", "_show_settings", "_show_stories", "_show_credits", "_show_main"]:
+		menu.call(fn)
+		await wait(0.1)
+	check("menu screens all build", menu.get_child_count() > 0)
+	menu._soon("商店", "Shop", "x", "y")
+	await wait(0.1)
+	menu._play_intro()
+	await wait(0.4)
+	var story: Control = menu._overlay.get_child(menu._overlay.get_child_count() - 1)
+	var finished: Array = [false]
+	story.finished.connect(func() -> void: finished[0] = true)
+	for i in 4:
+		story._advance()
+		await wait(0.9)
+	await wait(0.3)
+	check("opening story advances through 4 pages and finishes", finished[0])
+	menu._play_chapter_story(2)
+	await wait(2.2)
+	var cs: Control = menu._overlay.get_child(menu._overlay.get_child_count() - 1)
+	var done: Array = [false]
+	cs.finished.connect(func() -> void: done[0] = true)
+	for i in 6:
+		if is_instance_valid(cs):
+			cs._next()
+		await wait(0.1)
+		if is_instance_valid(cs):
+			cs._next()
+		await wait(0.1)
+	await wait(0.6)
+	check("chapter story plays to the end", done[0])
+	menu.queue_free()
+	await get_tree().process_frame
+	Levels.current_level = 5
+	get_tree().paused = false
+	var banner_battle: Node3D = BATTLE.instantiate()
+	add_child(banner_battle)
+	await wait(3.6)
+	check("boss intro banner appears with the boss (level %d, boss=%s paused=%s t=%.2f ts=%.2f)" % [banner_battle.level, str(banner_battle.boss), str(get_tree().paused), banner_battle.spawner._boss_timer, Engine.time_scale], banner_battle.boss != null)
+	banner_battle.queue_free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://smoke_save.cfg"))
+	Save.path = Save.PATH_DEFAULT
+	Save.reload()

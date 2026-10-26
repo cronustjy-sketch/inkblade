@@ -3,6 +3,7 @@ extends RefCounted
 # 墨 ink effects for the 2D campaign: ink splashes on hits, brush-stroke slashes, ink bursts when units die and
 # ground stains. All textures are painted procedurally once (no art files) and drawn as billboard sprites.
 
+const Save := preload("res://scripts/save.gd")
 const INK := Color(0.05, 0.05, 0.07)
 const SPLAT_SIZE: int = 128
 const STROKE_W: int = 256
@@ -16,6 +17,10 @@ static var _stroke: Texture2D
 static func _splat_textures() -> Array[Texture2D]:
 	if _splat.is_empty():
 		for variant in 4:
+			var baked: String = "res://ui/fx/ink_splat_%d.png" % variant
+			if ResourceLoader.exists(baked):
+				_splat.append(load(baked))
+				continue
 			_splat.append(_paint_splat(7000 + variant * 31))
 	return _splat
 
@@ -87,6 +92,9 @@ static func _with_halo(mask: PackedFloat32Array, w: int, h: int, halo: Color, ha
 static func _stroke_texture() -> Texture2D:
 	if _stroke != null:
 		return _stroke
+	if ResourceLoader.exists("res://ui/fx/ink_stroke.png"):
+		_stroke = load("res://ui/fx/ink_stroke.png")
+		return _stroke
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4242
 	var mask := PackedFloat32Array()
@@ -131,6 +139,8 @@ static func _sprite(parent: Node3D, tex: Texture2D, pos: Vector3, size_m: float,
 
 # A quick ink blot popping out of a hit point.
 static func hit_splash(parent: Node3D, pos: Vector3, size_m: float = 0.9, tint: Color = Color.WHITE) -> void:
+	if not Save.ink_effects():
+		return
 	var tex: Texture2D = _splat_textures()[randi() % 4]
 	var s: Sprite3D = _sprite(parent, tex, pos + Vector3(randf_range(-0.15, 0.15), randf_range(-0.1, 0.2), 0.35), size_m, tint)
 	s.rotation.z = randf() * TAU
@@ -142,6 +152,8 @@ static func hit_splash(parent: Node3D, pos: Vector3, size_m: float = 0.9, tint: 
 
 # A brush-stroke slash across the screen at `pos`, facing left or right.
 static func slash(parent: Node3D, pos: Vector3, facing: float, size_m: float = 3.0, tilt_deg: float = -20.0, tint: Color = Color.WHITE) -> void:
+	if not Save.ink_effects():
+		return
 	var s: Sprite3D = _sprite(parent, _stroke_texture(), pos + Vector3(facing * size_m * 0.3, 0.0, 0.5), size_m)
 	s.flip_h = facing < 0.0
 	s.rotation.z = deg_to_rad(tilt_deg) * facing
@@ -154,6 +166,8 @@ static func slash(parent: Node3D, pos: Vector3, facing: float, size_m: float = 3
 
 # A burst when a unit dies: a big blot, flying droplets, and a stain on the ground.
 static func death_burst(parent: Node3D, pos: Vector3, scale_m: float = 1.0, tint: Color = Color.WHITE) -> void:
+	if not Save.ink_effects():
+		return
 	var tex: Array[Texture2D] = _splat_textures()
 	var big: Sprite3D = _sprite(parent, tex[randi() % 4], pos + Vector3(0, 0.9 * scale_m, 0.4), 2.1 * scale_m, tint)
 	big.rotation.z = randf() * TAU
@@ -177,6 +191,8 @@ static func death_burst(parent: Node3D, pos: Vector3, scale_m: float = 1.0, tint
 
 # A flat dark stain on the ground that fades slowly.
 static func stain(parent: Node3D, pos: Vector3, size_m: float = 1.2) -> void:
+	if not Save.ink_effects():
+		return
 	var tex: Texture2D = _splat_textures()[randi() % 4]
 	var s := Sprite3D.new()
 	s.texture = tex

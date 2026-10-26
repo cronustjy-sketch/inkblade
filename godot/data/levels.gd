@@ -70,8 +70,13 @@ static func _save() -> void:
 	cfg.set_value("progress", "highest_cleared", _highest_cleared)
 	cfg.save(save_path)
 
-# Chapters change the landscape palette: 1 grassland (levels 1-5), 2 desert (6-10), 3 lava (11-20).
+# Story chapters are 10 levels each, like the web game: chapter 1 = levels 1-10 (grassland), chapter 2 = 11-20 (land of flames).
+static func chapter_number(level: int) -> int:
+	return maxi(1, ceili(level / 10.0))
+
+# Landscape palette for backdrop.gd: 1 grassland, 3 lava (2 = desert, kept for later chapters).
 static func chapter(level: int) -> int:
-	if level <= 5:
-		return 1
-	return 2 if level <= 10 else 3
+	return 1 if level <= 10 else 3
+
+static func is_first_of_chapter(level: int) -> bool:
+	return (level - 1) % 10 == 0
