@@ -8,6 +8,7 @@ const InkFx := preload("res://scripts/inkfx.gd")
 const BossData := preload("res://data/bosses.gd")
 const ModelRigScript := preload("res://scripts/modelrig.gd")
 const SpriteRigScript := preload("res://scripts/spriterig.gd")
+const Progress := preload("res://data/progress.gd")
 const CASTLE_HALF_WIDTH: float = 2.4
 const LANE_MIN_X: float = 0.0
 const LANE_MAX_X: float = 40.0
@@ -42,6 +43,8 @@ var _fill: MeshInstance3D
 var _rig: Node3D
 var _first_hit: bool = true
 var _kb_vel: float = 0.0
+var stun_t: float = 0.0 # frozen by the Frost spell
+var _tint: Color = Color.WHITE
 var lane_z: float = 0.0 # the lane this unit walks in (it slides there from behind its statue)
 var _splash_cd: float = 0.0
 
@@ -102,6 +105,8 @@ func _ready() -> void:
 		_rig = StickmanScript.new()
 		_rig.setup(key, team, speed)
 	add_child(_rig)
+	if _tint != Color.WHITE and _rig.has_method("set_tint"):
+		_rig.set_tint(_tint)
 
 	_fill = MeshInstance3D.new()
 	var quad := QuadMesh.new()
@@ -119,6 +124,10 @@ func _process(delta: float) -> void:
 	global_position.z = move_toward(global_position.z, lane_z, 2.2 * delta)
 	_splash_cd -= delta
 	_apply_knockback(delta)
+	if stun_t > 0.0:
+		stun_t -= delta
+		_rig.set_moving(false)
+		return
 	var is_healer: bool = data.has("heal")
 	var target: Node3D = _nearest_enemy()
 	var enemy_in_range: bool = target != null and _x_gap(target.global_position.x) <= attack_range
@@ -288,6 +297,8 @@ func _try_attack(target: Node3D) -> void:
 	_rig.play_attack(cooldown)
 	var is_castle: bool = target == enemy_castle
 	var dmg: float = atk * (UnitData.CONTROL_DAMAGE_MULT if controlled else 1.0)
+	if team == 0 and battle != null and battle.rage_t > 0.0:
+		dmg *= 1.5
 	if data.has("crit_chance") and randf() < data["crit_chance"]:
 		dmg *= data["crit_mult"]
 	if is_castle and data.has("castle_mult"):
@@ -417,6 +428,10 @@ func _haste() -> float:
 
 # Permanent upgrades for the player's army (data/progress.gd): HP, attack, speed and helm damage reduction.
 func apply_mods(mods: Dictionary) -> void:
+	var arm: Dictionary = Progress.arm_mul(key)
+	max_hp *= float(arm["hp"])
+	atk *= float(arm["atk"])
+	_tint = Progress.skin_tint("army")
 	max_hp *= float(mods["hp"])
 	hp = max_hp
 	atk *= float(mods["atk"])

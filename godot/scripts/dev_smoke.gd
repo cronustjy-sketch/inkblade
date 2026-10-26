@@ -21,6 +21,7 @@ func _ready() -> void:
 	await _step10()
 	await _part3()
 	await _part6()
+	await _part6b()
 	print("SMOKE DONE failures=%d" % failures)
 	get_tree().quit()
 
@@ -511,4 +512,65 @@ func _part6() -> void:
 	check("gear screen builds all three tabs", gear_view.get_child_count() > 3)
 	gear_view.queue_free()
 	Progress.set_value_for_test("blade")
+	Save.reset_all()
+
+# Part 6b: armory, skins, potions and spells.
+func _part6b() -> void:
+	get_tree().paused = false
+	const Progress := preload("res://data/progress.gd")
+	const Save := preload("res://scripts/save.gd")
+	Save.reset_all()
+	Progress.add_coins(5000)
+	check("armory cost is (60 + 3 x cost) x (level+1), attack +10%", Progress.arm_cost("soldier", "hp") == 120 and Progress.arm_cost("soldier", "atk") == 132)
+	check("armory upgrade spends coins and raises the multiplier", Progress.buy_arm("soldier", "hp") and Progress.buy_arm("soldier", "atk") and is_equal_approx(Progress.arm_mul("soldier")["hp"], 1.12) and is_equal_approx(Progress.arm_mul("soldier")["atk"], 1.1) and Progress.coins() == 5000 - 120 - 132)
+	check("skins: default free, paid skin buys and equips", Progress.owns_skin("hero_gold") and not Progress.owns_skin("hero_v") and Progress.buy_skin("hero_v"))
+	Progress.equip_skin("hero_v")
+	check("equipped skin gives its tint", Progress.equipped_skin("hero") == "hero_v" and Progress.skin_tint("hero") != Color.WHITE)
+	Progress.buy_item("p_energy")
+	Progress.buy_item("p_atk")
+	Progress.buy_item("bolt")
+	Progress.buy_item("frost")
+	Progress.buy_item("surge")
+	Progress.buy_item("meteor")
+	Progress.buy_item("reinf")
+	Progress.buy_item("volley")
+	Progress.buy_item("plague")
+	Progress.buy_item("rage")
+	Progress.buy_item("aegis")
+	Levels.current_level = 4
+	battle.queue_free()
+	await get_tree().process_frame
+	battle = BATTLE.instantiate()
+	add_child(battle)
+	await wait(0.5)
+	check("potions are drunk at the start (energy +80, attack +25%)", battle.energy >= 80.0 and is_equal_approx(battle.mods["atk"], 1.25) and Progress.potions("p_energy") == 0)
+	battle.spawn_unit(0, "soldier")
+	var u: Node3D = get_tree().get_nodes_in_group("team_0").back()
+	check("the soldier gets armory + potion upgrades", absf(u.atk - 10.0 * 1.1 * 1.25) < 0.01 and absf(u.max_hp - 60.0 * 1.12) < 0.01)
+	battle.spawn_unit(1, "soldier")
+	var foe: Node3D = get_tree().get_nodes_in_group("team_1").back()
+	foe.position.x = 20.0
+	var foe_hp: float = foe.hp
+	check("thunder hits the front enemy", battle.cast_spell("bolt") and (not is_instance_valid(foe) or foe.hp < foe_hp))
+	check("frost freezes ground enemies", battle.cast_spell("frost"))
+	await wait(0.3)
+	for id in ["surge", "meteor", "reinf", "volley", "plague", "rage", "aegis"]:
+		check("spell %s casts" % id, battle.cast_spell(id))
+	check("rage and aegis start timers", battle.rage_t > 0.0 and battle.wall_t > 0.0)
+	check("a spell with none left cannot be cast", not battle.cast_spell("bolt"))
+	await wait(1.5)
+	var shop: Control = load("res://scripts/gear_view.gd").new()
+	shop.mode = "shop"
+	add_child(shop)
+	await wait(0.2)
+	for tab in ["potions", "spells", "skins"]:
+		shop._show(tab)
+	check("shop screen builds its tabs", shop.get_child_count() > 3)
+	shop.queue_free()
+	var arm: Control = load("res://scripts/gear_view.gd").new()
+	arm.mode = "armory"
+	add_child(arm)
+	await wait(0.2)
+	check("armory screen builds", arm.get_child_count() > 3)
+	arm.queue_free()
 	Save.reset_all()

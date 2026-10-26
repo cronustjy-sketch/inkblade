@@ -135,3 +135,115 @@ static func mods() -> Dictionary:
 static func set_value_for_test(id: String) -> void:
 	Save.set_value("econ", "hero_" + id, true)
 	Save.set_value("econ", "hero", id)
+
+# ---------- armory 军械库: per-unit HP / attack upgrades ----------
+
+const ARM_MAX: int = 5
+const UnitData := preload("res://data/units.gd")
+
+static func arm_lv(unit: String, stat: String) -> int:
+	return int(Save.get_value("econ", "arm_%s_%s" % [unit, stat], 0))
+
+# The web's armCost: (60 + 3 x unit cost) x (level + 1), attack 10% dearer.
+static func arm_cost(unit: String, stat: String) -> int:
+	return roundi((60.0 + float(UnitData.UNITS[unit]["cost"]) * 3.0) * (arm_lv(unit, stat) + 1) * (1.1 if stat == "atk" else 1.0))
+
+static func buy_arm(unit: String, stat: String) -> bool:
+	var lv: int = arm_lv(unit, stat)
+	if lv >= ARM_MAX or coins() < arm_cost(unit, stat):
+		return false
+	add_coins(-arm_cost(unit, stat))
+	Save.set_value("econ", "arm_%s_%s" % [unit, stat], lv + 1)
+	return true
+
+static func arm_mul(unit: String) -> Dictionary:
+	return {"hp": 1.0 + 0.12 * arm_lv(unit, "hp"), "atk": 1.0 + 0.1 * arm_lv(unit, "atk")}
+
+# ---------- shop 商店 ----------
+
+const SKINS: Dictionary = {
+	"hero_gold": {"cn": "金焰英雄", "en": "Flame Hero", "price": 0, "slot": "hero", "tint": Color.WHITE},
+	"hero_v": {"cn": "暗影紫刃", "en": "Shadow Violet", "price": 150, "slot": "hero", "tint": Color("b58cff")},
+	"hero_j": {"cn": "翡翠剑客", "en": "Jade Swordsman", "price": 200, "slot": "hero", "tint": Color("7fe0a0")},
+	"hero_s": {"cn": "白银骑士", "en": "Silver Knight", "price": 300, "slot": "hero", "tint": Color("dfe6f0")},
+	"army_b": {"cn": "苍蓝军团", "en": "Azure Legion", "price": 0, "slot": "army", "tint": Color.WHITE},
+	"army_p": {"cn": "紫晶军团", "en": "Amethyst Legion", "price": 250, "slot": "army", "tint": Color("c49cff")},
+	"army_g": {"cn": "翠林军团", "en": "Emerald Legion", "price": 250, "slot": "army", "tint": Color("8fe39a")},
+}
+const SKIN_ORDER: Array[String] = ["hero_gold", "hero_v", "hero_j", "hero_s", "army_b", "army_p", "army_g"]
+
+const POTIONS: Dictionary = {
+	"p_energy": {"cn": "能量药水", "en": "Energy Potion", "d_cn": "下一场开局能量 +80", "d_en": "Next battle: start with +80 energy", "price": 40, "color": Color("e8b44a")},
+	"p_hp": {"cn": "城墙药水", "en": "Wall Potion", "d_cn": "下一场我方基地生命 +50%", "d_en": "Next battle: base HP +50%", "price": 50, "color": Color("6cc070")},
+	"p_atk": {"cn": "狂暴药水", "en": "Rage Potion", "d_cn": "下一场全军攻击 +25%", "d_en": "Next battle: army attack +25%", "price": 60, "color": Color("de4b3f")},
+	"p_speed": {"cn": "疾风药水", "en": "Gale Potion", "d_cn": "下一场全军移动 +30%", "d_en": "Next battle: army move speed +30%", "price": 40, "color": Color("5b9be6")},
+}
+const POTION_ORDER: Array[String] = ["p_energy", "p_hp", "p_atk", "p_speed"]
+
+const SPELLS: Dictionary = {
+	"bolt": {"cn": "天雷", "en": "Thunder", "d_cn": "劈中最前面的 4 个敌人", "d_en": "Strikes the 4 front enemies", "price": 40, "color": Color("ffe95a")},
+	"volley": {"cn": "千箭齐发", "en": "Arrow Volley", "d_cn": "3 秒箭雨覆盖敌人前线", "d_en": "3 s of arrows on the enemy front", "price": 35, "color": Color("9ad0ff")},
+	"rage": {"cn": "狂暴", "en": "Rage", "d_cn": "全军攻击 +50%，持续 8 秒", "d_en": "Army +50% attack for 8 s", "price": 50, "color": Color("ff7a3a")},
+	"aegis": {"cn": "圣盾", "en": "Aegis", "d_cn": "全军受到的伤害 -60%，持续 6 秒", "d_en": "Army takes 60% less for 6 s", "price": 50, "color": Color("bfe0ff")},
+	"frost": {"cn": "冰封", "en": "Frost", "d_cn": "冻住所有地面敌人 3 秒", "d_en": "Freezes ground enemies for 3 s", "price": 60, "color": Color("9fe8ff")},
+	"surge": {"cn": "能量泉", "en": "Energy Spring", "d_cn": "立刻 +100 能量", "d_en": "+100 energy at once", "price": 30, "color": Color("ffd36b")},
+	"plague": {"cn": "瘟疫", "en": "Plague", "d_cn": "敌人前线毒雾，5 秒持续伤害", "d_en": "Poison cloud on the enemy front for 5 s", "price": 45, "color": Color("9be37a")},
+	"reinf": {"cn": "援军", "en": "Reinforcements", "d_cn": "免费召唤 5 个剑兵 + 1 个巨人", "d_en": "Free 5 swordsmen + 1 giant", "price": 80, "color": Color("f2b632")},
+	"meteor": {"cn": "陨石风暴", "en": "Meteor Storm", "d_cn": "12 颗陨石砸向敌人", "d_en": "12 meteors on the enemy", "price": 120, "color": Color("ff5a3a")},
+}
+const SPELL_ORDER: Array[String] = ["bolt", "volley", "rage", "aegis", "frost", "surge", "plague", "reinf", "meteor"]
+
+static func owns_skin(id: String) -> bool:
+	return int(SKINS[id]["price"]) == 0 or bool(Save.get_value("econ", "skin_" + id, false))
+
+static func equipped_skin(slot: String) -> String:
+	var def: String = "hero_gold" if slot == "hero" else "army_b"
+	var id: String = String(Save.get_value("econ", "skin_" + slot, def))
+	return id if SKINS.has(id) and owns_skin(id) else def
+
+static func skin_tint(slot: String) -> Color:
+	return SKINS[equipped_skin(slot)]["tint"]
+
+static func equip_skin(id: String) -> void:
+	if owns_skin(id):
+		Save.set_value("econ", "skin_" + String(SKINS[id]["slot"]), id)
+
+static func buy_skin(id: String) -> bool:
+	if owns_skin(id) or coins() < int(SKINS[id]["price"]):
+		return false
+	add_coins(-int(SKINS[id]["price"]))
+	Save.set_value("econ", "skin_" + id, true)
+	return true
+
+static func potions(id: String) -> int:
+	return int(Save.get_value("econ", "n_" + id, 0))
+
+static func spells(id: String) -> int:
+	return int(Save.get_value("econ", "n_" + id, 0))
+
+# Buys one potion or spell (they stack).
+static func buy_item(id: String) -> bool:
+	var price: int = int(POTIONS[id]["price"]) if POTIONS.has(id) else int(SPELLS[id]["price"])
+	if coins() < price:
+		return false
+	add_coins(-price)
+	Save.set_value("econ", "n_" + id, int(Save.get_value("econ", "n_" + id, 0)) + 1)
+	return true
+
+# Uses one spell from the bag. Returns false if there is none.
+static func use_spell(id: String) -> bool:
+	var n: int = spells(id)
+	if n <= 0:
+		return false
+	Save.set_value("econ", "n_" + id, n - 1)
+	return true
+
+# At the start of a battle every potion in the bag is drunk (one of each). Returns what was used.
+static func drink_potions() -> Array[String]:
+	var used: Array[String] = []
+	for id: String in POTION_ORDER:
+		var n: int = potions(id)
+		if n > 0:
+			Save.set_value("econ", "n_" + id, n - 1)
+			used.append(id)
+	return used

@@ -66,7 +66,7 @@ func _ready() -> void:
 	# Until the hero sheet is baked, borrow the footsoldier sprite.
 	_rig.setup("hero" if SpriteRigScript.has_sprite("hero") else "soldier", 0, speed, UnitData.HERO["sprite_h"], "gold")
 	add_child(_rig)
-	_rig.set_tint(Progress.HEROES[hero_id]["tint"])
+	_rig.set_tint(Color(Progress.HEROES[hero_id]["tint"]) * Progress.skin_tint("hero"))
 	_rig.scale = Vector3.ONE * float(Progress.HEROES[hero_id]["scale"])
 	_build_ring()
 	_bar = Node3D.new()

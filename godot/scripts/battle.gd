@@ -47,6 +47,7 @@ var cam_x: float = 6.0
 var energy: float = 0.0
 var mods: Dictionary = {} # permanent upgrades (data/progress.gd), read once per battle
 var max_pop: int = MAX_POP
+var rage_t: float = 0.0 # Rage spell: army attack +50%
 var wall_t: float = 0.0 # knight skill: army takes less damage while this runs
 var hud: CanvasLayer
 var hero: Node3D
@@ -67,6 +68,16 @@ var _over: bool = false
 
 func _ready() -> void:
 	mods = Progress.mods()
+	for potion: String in Progress.drink_potions():
+		match potion:
+			"p_energy":
+				mods["start_energy"] = float(mods["start_energy"]) + 80.0
+			"p_hp":
+				mods["base_hp"] = float(mods["base_hp"]) * 1.5
+			"p_atk":
+				mods["atk"] = float(mods["atk"]) * 1.25
+			"p_speed":
+				mods["spd"] = float(mods["spd"]) * 1.3
 	max_pop = int(mods["cap"])
 	energy = float(mods["start_energy"])
 	# Retry / Next level reload this scene, so the level lives in a static var.
@@ -113,6 +124,8 @@ func _ready() -> void:
 	hud.retry_requested.connect(_on_retry)
 	hud.next_level_requested.connect(_on_next_level)
 	hud.growth_picked.connect(Progress.add_growth)
+	hud.spell_requested.connect(cast_spell)
+	hud.set_spells(_spell_counts())
 	hud.map_requested.connect(_on_map)
 
 	hero = HERO_SCENE.instantiate()
@@ -133,6 +146,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	energy = minf(MAX_ENERGY, energy + float(mods["regen"]) * delta)
 	wall_t = maxf(0.0, wall_t - delta)
+	rage_t = maxf(0.0, rage_t - delta)
 	hud.update_state(energy, player_pop())
 
 	hud.update_skills(hero)
@@ -439,3 +453,72 @@ func _on_map() -> void:
 func shake_camera(amount: float) -> void:
 	if Save.camera_shake():
 		_shake_t = maxf(_shake_t, amount)
+
+# ---------- shop spells (bought in 商店, one use each) ----------
+
+func _spell_counts() -> Dictionary:
+	var out: Dictionary = {}
+	for id: String in Progress.SPELL_ORDER:
+		out[id] = Progress.spells(id)
+	return out
+
+func _enemy_units() -> Array[Node3D]:
+	var out: Array[Node3D] = []
+	for u: Node3D in get_tree().get_nodes_in_group("team_1"):
+		if not u.is_queued_for_deletion() and not u.inside:
+			out.append(u)
+	out.sort_custom(func(a: Node3D, b: Node3D) -> bool: return a.global_position.x < b.global_position.x)
+	return out
+
+func cast_spell(id: String) -> bool:
+	if _over or not Progress.use_spell(id):
+		return false
+	var front: float = ENEMY_CASTLE_X - 4.0
+	var foes: Array[Node3D] = _enemy_units()
+	if foes.size() > 0:
+		front = foes[0].global_position.x
+	var power: float = float(mods["skill_atk"])
+	match id:
+		"bolt":
+			for i in mini(4, foes.size()):
+				foes[i].take_damage(224.0 * power * (0.6 if foes[i].key == "boss" else 1.0))
+				Fx.ring(self, foes[i].global_position, 1.5, Color("ffe95a"), 0.4)
+			shake_camera(0.5)
+		"volley":
+			for i in 12:
+				get_tree().create_timer(0.25 * i).timeout.connect(_area_hit.bind(front - 1.0, front + 6.0, 14.0 * power, Color("9ad0ff")))
+		"rage":
+			rage_t = 8.0
+			rally_t = maxf(rally_t, 8.0)
+		"aegis":
+			wall_t = maxf(wall_t, 6.0)
+		"frost":
+			for u: Node3D in foes:
+				if not u.flying:
+					u.stun_t = 1.2 if u.key == "boss" else 3.0
+		"surge":
+			energy = minf(MAX_ENERGY, energy + 100.0)
+		"plague":
+			for i in 10:
+				get_tree().create_timer(0.5 * i).timeout.connect(_area_hit.bind(front - 1.0, front + 5.0, 20.0 * power, Color("9be37a")))
+		"reinf":
+			for i in 5:
+				spawn_unit(0, "soldier")
+			spawn_unit(0, "giant")
+		"meteor":
+			for i in 12:
+				get_tree().create_timer(0.12 * i + 0.3).timeout.connect(_meteor_at.bind(front + randf_range(-1.0, 9.0), 60.0 * power))
+	hud.set_spells(_spell_counts())
+	return true
+
+func _area_hit(lo: float, hi: float, dmg: float, color: Color) -> void:
+	for u: Node3D in _enemy_units():
+		if u.global_position.x >= lo and u.global_position.x <= hi:
+			u.take_damage(dmg)
+	Fx.ring(self, Vector3((lo + hi) * 0.5, 0.0, 0.0), (hi - lo) * 0.5, color, 0.25)
+
+func _meteor_at(x: float, dmg: float) -> void:
+	for u: Node3D in _enemy_units():
+		if absf(u.global_position.x - x) <= 2.5 and not u.flying:
+			u.take_damage(dmg)
+	Fx.ring(self, Vector3(x, 0.0, 0.0), 2.5, Color("ff5a3a"), 0.4)

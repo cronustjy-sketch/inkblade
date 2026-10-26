@@ -8,6 +8,7 @@ signal closed
 const Kit := preload("res://scripts/ui_kit.gd")
 const Progress := preload("res://data/progress.gd")
 
+var mode: String = "gear" # "gear" (装备 + 军械库) or "shop" (商店), set before adding to the tree
 var _tab: String = "heroes"
 var _body: Control
 var _coins: Label
@@ -19,7 +20,7 @@ func _ready() -> void:
 	dim.color = Color(0.05, 0.07, 0.15, 1.0)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
-	var title: VBoxContainer = Kit.bilingual("装备", "Gear", 40, 16, Color.WHITE, Kit.GOLD, 8, true, HORIZONTAL_ALIGNMENT_LEFT)
+	var title: VBoxContainer = Kit.bilingual("商店" if mode == "shop" else ("军械库" if mode == "armory" else "装备"), "Shop" if mode == "shop" else ("Armory" if mode == "armory" else "Gear"), 40, 16, Color.WHITE, Kit.GOLD, 8, true, HORIZONTAL_ALIGNMENT_LEFT)
 	title.position = Vector2(30, 10)
 	add_child(title)
 	_coins = Kit.label("", 24, Kit.GOLD, 5)
@@ -36,7 +37,12 @@ func _ready() -> void:
 	tabs.position = Vector2(30, 84)
 	tabs.add_theme_constant_override("separation", 12)
 	add_child(tabs)
-	for t: Array in [["heroes", "英雄", "Heroes"], ["gear", "装备", "Gear"], ["growth", "成长", "Growth"]]:
+	var tab_list: Array = [["heroes", "英雄", "Heroes"], ["gear", "装备", "Gear"], ["growth", "成长", "Growth"]]
+	if mode == "shop":
+		tab_list = [["skins", "皮肤", "Skins"], ["potions", "药水", "Potions"], ["spells", "法术", "Spells"]]
+	elif mode == "armory":
+		tab_list = [["armory", "兵种强化", "Unit upgrades"]]
+	for t: Array in tab_list:
 		var b: Button = Kit.pill(t[1], t[2], Kit.SKY, Vector2(170, 52), _show.bind(t[0]), 20)
 		tabs.add_child(b)
 		_tab_buttons[t[0]] = b
@@ -44,7 +50,7 @@ func _ready() -> void:
 	_body.position = Vector2(30, 148)
 	_body.size = Vector2(1090, 480)
 	add_child(_body)
-	_show("heroes")
+	_show(String(tab_list[0][0]))
 
 func _show(tab: String) -> void:
 	_tab = tab
@@ -58,6 +64,14 @@ func _show(tab: String) -> void:
 			_build_heroes()
 		"gear":
 			_build_gear()
+		"skins":
+			_build_skins()
+		"potions":
+			_build_items(Progress.POTION_ORDER, Progress.POTIONS, "potions")
+		"spells":
+			_build_items(Progress.SPELL_ORDER, Progress.SPELLS, "spells")
+		"armory":
+			_build_armory()
 		_:
 			_build_growth()
 
@@ -138,3 +152,69 @@ func _build_growth() -> void:
 		v.add_child(_wrap(g["d_cn"], 14, Kit.NAVY, 490))
 	var note: Label = _wrap("每首次通关一关，就可以选一条成长路线（胜利画面）。 Clear a level for the first time to pick a path on the victory screen.", 15, Color.WHITE, 1000)
 	_flow.add_child(note)
+
+func _build_skins() -> void:
+	_new_flow()
+	for id: String in Progress.SKIN_ORDER:
+		var s: Dictionary = Progress.SKINS[id]
+		var owned: bool = Progress.owns_skin(id)
+		var on: bool = Progress.equipped_skin(String(s["slot"])) == id
+		var v: VBoxContainer = _card(260, 150, Color("ffe9a8") if on else Kit.CREAM)
+		var swatch := ColorRect.new()
+		swatch.custom_minimum_size = Vector2(236, 14)
+		swatch.color = s["tint"] if s["tint"] != Color.WHITE else Kit.GOLD
+		v.add_child(swatch)
+		v.add_child(Kit.bilingual(s["cn"], "%s · %s" % [s["en"], "英雄 Hero" if s["slot"] == "hero" else "军队 Army"], 20, 12, Kit.OUTLINE, Color("4a5678"), 0, false, HORIZONTAL_ALIGNMENT_LEFT))
+		var btn: Button
+		if on:
+			btn = Kit.pill("使用中", "In use", Color("b9b2a0"), Vector2(220, 40), func() -> void: pass, 16)
+			btn.disabled = true
+		elif owned:
+			btn = Kit.pill("使用", "Use", Kit.GOLD, Vector2(220, 40), func() -> void:
+				Progress.equip_skin(id)
+				_show("skins"), 16)
+		else:
+			btn = Kit.pill("购买 %d 金币" % s["price"], "Buy", Kit.GREEN, Vector2(220, 40), func() -> void:
+				Progress.buy_skin(id)
+				Progress.equip_skin(id)
+				_show("skins"), 16)
+			btn.disabled = Progress.coins() < int(s["price"])
+		v.add_child(btn)
+
+# Potions (drunk at the start of the next battle) and spells (cast from the battle HUD): buy as many as you like.
+func _build_items(order: Array[String], table: Dictionary, tab: String) -> void:
+	_new_flow()
+	for id: String in order:
+		var it: Dictionary = table[id]
+		var v: VBoxContainer = _card(260, 160, Kit.CREAM)
+		var swatch := ColorRect.new()
+		swatch.custom_minimum_size = Vector2(236, 12)
+		swatch.color = it["color"]
+		v.add_child(swatch)
+		v.add_child(Kit.bilingual(it["cn"], it["en"], 20, 12, Kit.OUTLINE, Color("4a5678"), 0, false, HORIZONTAL_ALIGNMENT_LEFT))
+		v.add_child(_wrap(it["d_cn"], 12, Kit.NAVY, 236))
+		v.add_child(Kit.label("背包 In bag: %d" % int(Progress.potions(id)), 13, Color("4a5678")))
+		var buy: Button = Kit.pill("购买 %d 金币" % it["price"], "Buy", Kit.GREEN, Vector2(220, 38), func() -> void:
+			Progress.buy_item(id)
+			_show(tab), 16)
+		buy.disabled = Progress.coins() < int(it["price"])
+		v.add_child(buy)
+
+func _build_armory() -> void:
+	_new_flow()
+	for key: String in Progress.UnitData.UNITS:
+		if key == "dragon":
+			continue
+		var d: Dictionary = Progress.UnitData.UNITS[key]
+		var v: VBoxContainer = _card(260, 140, Kit.CREAM)
+		v.add_child(Kit.bilingual(d["name_cn"], d["name_en"], 20, 12, Kit.OUTLINE, Color("4a5678"), 0, false, HORIZONTAL_ALIGNMENT_LEFT))
+		for stat: String in ["hp", "atk"]:
+			var lv: int = Progress.arm_lv(key, stat)
+			var maxed: bool = lv >= Progress.ARM_MAX
+			var cost: int = Progress.arm_cost(key, stat)
+			var label: String = "生命 HP +%d%%" % (lv * 12) if stat == "hp" else "攻击 ATK +%d%%" % (lv * 10)
+			var b: Button = Kit.pill("%s  Lv%d  %s" % [label, lv, "满级" if maxed else "%d 金币" % cost], "", Kit.GOLD, Vector2(236, 40), func() -> void:
+				Progress.buy_arm(key, stat)
+				_show("armory"), 13)
+			b.disabled = maxed or Progress.coins() < cost
+			v.add_child(b)

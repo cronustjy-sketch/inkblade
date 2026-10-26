@@ -62,9 +62,9 @@ Legend: ✅ ported · ⚠️ partial (what exists / what is missing) · ❌ miss
 | **Upgrades 力量 / 防御 / 速度 / 统帅** (first clear of a level lets you pick one on the victory screen) | ✅ `data/progress.gd`, same formulas as the web `mods()` |
 | **Heroes**: 金焰剑客 (free), 重甲骑士 (400), 疾影刺客 (500), 烈焰法师 (600), 巨力蛮王 (900) with stats and per-hero G skill | ✅ buy / select in 装备; stats scaled to the Godot hero, tinted sprites (own art ❌), G skills ported |
 | **Gear** (8 items, 5 levels): 精钢铠甲, 锋利兵刃, 疾行战靴, 统帅军旗, 坚固城墙, 精钢头盔, 墨玉护符, 战鼓 | ✅ bought with coins in 装备 → 装备 |
-| **Shop**: hero skins (金焰英雄, 暗影紫刃, 翡翠剑客, 白银骑士), army skins (苍蓝/紫晶/翠林军团), potions (能量/城墙/狂暴/疾风), spells, pets | ❌ → part 6 |
+| **Shop**: hero skins (4), army skins (3), potions (4), spells (9: cast from buttons in battle) | ✅ pets ❌ |
 | Coins 🪙 earned per level; gems 💎 per chapter | ❌ |
-| **Armory 军械库**: per-unit HP / ATK upgrade ×5, per-unit colours, preview | ❌ |
+| **Armory 军械库**: per-unit HP / ATK upgrade x5 | ✅ (per-unit colours and preview ❌) |
 | **Pets 宠物**: 赤焰龙, 雷鹰, 灵狐, 金麒麟, 冰霜龙, 骨龙 | ❌ |
 | Vault 宝库: relic 2D skills (怒涛, 沙暴, 电磁脉冲, 糖果雨, 火山爆发, 时之停滞, 圣光审判, 镜之军团, 雷神降临, 龙魂召唤, 万墨归一), 3D skills, swords, accessories — all unlocked by chapters 28–50 | ❌ |
 | Ink colours 墨色 (10), titles 称号 (12), boss book 首领图鉴 | ❌ |

@@ -14,6 +14,7 @@ signal retry_requested
 signal next_level_requested
 signal map_requested
 signal growth_picked(key: String)
+signal spell_requested(id: String)
 
 const UnitData := preload("res://data/units.gd")
 const Progress := preload("res://data/progress.gd")
@@ -570,3 +571,34 @@ func show_boss_banner(name_cn: String, name_en: String, taunt_cn: String, taunt_
 	tw.tween_interval(duration)
 	tw.tween_property(box, "modulate:a", 0.0, 0.6)
 	tw.tween_callback(box.queue_free)
+
+# ---------- shop spells ----------
+
+var _spell_box: HBoxContainer
+
+# One small button per spell in the bag, with its count; hidden when the bag is empty.
+func set_spells(counts: Dictionary) -> void:
+	if _spell_box == null:
+		_spell_box = HBoxContainer.new()
+		_spell_box.position = Vector2(14.0, 108.0)
+		_spell_box.add_theme_constant_override("separation", 6)
+		_root.add_child(_spell_box)
+	for c: Node in _spell_box.get_children():
+		c.queue_free()
+	for id: String in Progress.SPELL_ORDER:
+		var n: int = int(counts.get(id, 0))
+		if n <= 0:
+			continue
+		var s: Dictionary = Progress.SPELLS[id]
+		var b := Button.new()
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(66, 50)
+		b.text = "%s\n×%d" % [String(s["cn"]).left(2), n]
+		b.tooltip_text = "%s %s — %s" % [s["cn"], s["en"], s["d_cn"]]
+		b.add_theme_font_size_override("font_size", 14)
+		b.add_theme_color_override("font_color", OUTLINE)
+		b.add_theme_color_override("font_hover_color", OUTLINE)
+		b.add_theme_stylebox_override("normal", _flat(s["color"], OUTLINE, 4, 16, 2))
+		b.add_theme_stylebox_override("hover", _flat((s["color"] as Color).lightened(0.25), OUTLINE, 4, 16, 2))
+		b.pressed.connect(func() -> void: spell_requested.emit(id))
+		_spell_box.add_child(b)

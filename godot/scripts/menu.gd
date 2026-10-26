@@ -102,8 +102,8 @@ func _show_main() -> void:
 	box.add_child(quick)
 	var items: Array = [
 		["装", "装备", "Gear", Color("e0463b"), _open_gear],
-		["店", "商店", "Shop", Color("6cc070"), func() -> void: _soon("商店", "Shop", "商店（药水、技能、宠物）还没有移植过来。", "The shop (potions, spells, pets) is not ported yet.")],
-		["械", "军械库", "Armory", Color("8c93a3"), func() -> void: _soon("军械库", "Armory", "兵种强化还没有移植过来。", "Unit upgrades are not ported yet.")],
+		["店", "商店", "Shop", Color("6cc070"), _open_shop],
+		["械", "军械库", "Armory", Color("8c93a3"), _open_armory],
 		["设", "设置", "Settings", Color("5b9be6"), _show_settings],
 		["故", "故事", "Story", Color("b46cff"), _show_stories],
 		["起", "起源", "Origin", Color("ff8a5a"), _play_origin],
@@ -409,5 +409,17 @@ func _draw_scenery(canvas: Control) -> void:
 
 func _open_gear() -> void:
 	var view: Control = GearView.new()
+	_overlay.add_child(view)
+	view.closed.connect(func() -> void: view.queue_free())
+
+func _open_shop() -> void:
+	_open_view("shop")
+
+func _open_armory() -> void:
+	_open_view("armory")
+
+func _open_view(mode: String) -> void:
+	var view: Control = GearView.new()
+	view.mode = mode
 	_overlay.add_child(view)
 	view.closed.connect(func() -> void: view.queue_free())
