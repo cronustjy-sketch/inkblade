@@ -88,7 +88,7 @@ Legend: ✅ ported · ⚠️ partial (what exists / what is missing) · ❌ miss
 | Mode | Godot |
 |---|---|
 | 2D campaign (chapters 1–60, 1500 levels) | ⚠️ 20 levels |
-| 3D 墨境 campaign: 100 chapters × 10 levels (C3CH / GB3 bosses), elites, variants (巨/疾/爆/白蚀/金墨/分裂 foes), awakening, 墨阶 stages, 墨三刃 | ⚠️ replaced by a simple 5-fight 3D Boss Raid (not the real thing) → part 4 |
+| 3D 墨境 campaign: 100 chapters × 10 levels (C3CH / GB3 bosses), elites, variants (巨/疾/爆/白蚀/金墨/分裂 foes), awakening, 墨阶 stages, 墨三刃 | ⚠️ the boss fights exist as a boss list (Fractured Realm ladder + 98 campaign bosses); chapters, levels, elites, variants, awakening ❌ |
 | 3D 墨境 · 白蚀之战 earlier fights W3 (纸鸢将军, 抹除者, 朱砂狐, 石砚巨像, 墨魇) | ❌ |
 | 墨神试炼 (10 boss gauntlet from GB3), 首领连战 (rush, timed), 墨境试炼 (endless 3D + perk cards), 首领之路 ladder | ❌ |
 | 墨技道场 (dojo: pick 3D skills 墨刃风暴, 瞬影连斩, 墨龙卷, 天降巨剑, 墨龙降临, 月蚀一闪, …) | ❌ |
@@ -110,16 +110,16 @@ dash 冲锋, slam 跃击, wave 震波, meteor 墨陨, fan 扇射, summon 召唤,
 
 | Feature | Godot |
 |---|---|
-| The 49 + 20 + 80 boss definitions in `GB3`, `P3B`, `LEGX`, `FRB` | ⚠️ → part 4 ports GB3 (49 bosses) + the 15 moves |
-| Boss models: warden / colossus / faceless animated `.glb`, ender / pk / dragon static, others built from parts (stick body + horns, crown, halo, wings, plates, mask, hat, tail, brush, scarf) | ⚠️ part 4 |
-| Boss phase 2 at 50% HP with new moves, boss HP bar + name banner | ✅ in the raid; GB3 data → part 4 |
+| The boss definitions: `GB3` (98 entries, generated into `data/gb3_data.gd`), `FRB` (5 Fractured Realm guardians) | ✅ GB3 + FRB ported; `P3B` (20) and `LEGX` (80) not yet |
+| Boss models: warden / colossus / faceless animated `.glb`, ender / dragon animated in code, others built from parts (horns, crown, halo, wings, plates, mask, hat, tail, brush, scarf) | ✅ ladder uses the user's models; campaign giants/blades reuse colossus / warden / faceless tinted, the rest are built from primitives (`scripts/raid_body.gd`) |
+| Boss phase 2 at 50% HP with new moves, boss HP bar + name banner | ✅ (17 moves incl. hand + paint; move name + tip shown on screen) |
 
 ## 7. 3D hero and arena (web `init3D`, ~2,900 lines)
 
 | Feature | Godot |
 |---|---|
-| 3D hero `hero_anim.glb` with idle / run / slash1-3 / spin / roll / hit / jump / power, textured, emissive | ⚠️ model loads; textures render too dark → part 4 |
-| Swords `sw_*.glb` (blank, blood, colossus, free, ink, iron) per awakening form + vault swords | ❌ → part 4 (choose sword in a menu) |
+| 3D hero `hero_anim.glb` with idle / run / slash1-3 / spin / roll / hit / jump / power, textured, emissive | ✅ texture also drives emission (0.22), smoothed normals, toon + outline; `spin` is the G skill 墨旋 |
+| Swords `sw_*.glb` (blank, blood, colossus, free, ink, iron) | ✅ held in the hero's hand, picked in the Boss Raid menu (per-awakening-form swords and vault swords ❌) |
 | Skills 1–4 (墨龙降临, 月蚀一闪, 百鬼夜行, 天墨崩落), 5 relic skill, I domain, T 三刃 stance, H stage-up, G 画符 (draw glyph) | ❌ |
 | Arenas with decorations: lava, temple, hall, bamboo, pumpkin, sky islands (fall = out) | ⚠️ one stone arena |
 | Dodge roll, jump + double jump, air attack, ground slam, launcher | ⚠️ roll + combo only |

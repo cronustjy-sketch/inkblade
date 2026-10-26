@@ -79,6 +79,7 @@ func _ready() -> void:
 	add_child(_model)
 	_materials = Toon.apply_model(_model, MODEL_SCALE, 0.03, Color.WHITE, 1.25, 0.5, 1.5)
 	_shadow = Fx.blob_shadow(self, 1.1)
+	_attach_sword()
 	_anim = _model.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if _anim != null:
 		for anim_name: StringName in _anim.get_animation_list():
@@ -215,6 +216,15 @@ func cast(id: String) -> bool:
 			_lock_t = 0.6
 			play_fit("power", 0.6)
 			_rain(s)
+		"special":
+			# 墨旋 Ink Vortex: a spinning slash that hits everything around the hero.
+			_lock_t = 0.7
+			play_fit("spin", 0.7)
+			var reach: float = s["range"] / UnitData.PX_PER_M
+			Fx.ring(get_parent(), global_position, reach, Color(0.1, 0.1, 0.15, 0.7), 0.5)
+			Fx.slash_trail(get_parent(), global_position, facing, reach * 0.9, 340.0, 0.0, Color(0.85, 0.95, 1.0, 0.95))
+			_big_shake(0.5)
+			_hit_bosses(global_position, facing, reach, 360.0, s["damage"])
 		_:
 			return false
 	skill_cd[id] = s["cooldown"]
@@ -394,3 +404,51 @@ func _big_shake(amount: float) -> void:
 	var rig: Node = get_tree().get_first_node_in_group("raid_camera")
 	if rig != null:
 		rig.shake = maxf(rig.shake, amount)
+
+# ---------- sword ----------
+
+const SWORDS: Dictionary = {
+	"ink": "res://models/sw_ink.glb", "iron": "res://models/sw_iron.glb", "blank": "res://models/sw_blank.glb",
+	"blood": "res://models/sw_blood.glb", "colossus": "res://models/sw_colossus.glb", "free": "res://models/sw_free.glb",
+}
+const SWORD_SCALE: float = 0.62
+const HAND_BONE: String = "mixamorigRightHand"
+static var sword_id: String = "ink" # chosen in the raid menu (data/raid.gd keeps it saved)
+
+var _sword_attach: BoneAttachment3D
+
+# Puts the chosen sword (models/sw_*.glb, along +Y with the grip near its base) in the hero's right hand.
+func _attach_sword() -> void:
+	var skeleton: Skeleton3D = null
+	for sk: Node in _model.find_children("*", "Skeleton3D", true, false):
+		skeleton = sk as Skeleton3D
+	if skeleton == null or skeleton.find_bone(HAND_BONE) < 0:
+		return
+	if _sword_attach != null:
+		_sword_attach.queue_free()
+	_sword_attach = BoneAttachment3D.new()
+	_sword_attach.bone_name = HAND_BONE
+	skeleton.add_child(_sword_attach)
+	var path: String = SWORDS.get(sword_id, SWORDS["ink"])
+	var sword: Node3D = (load(path) as PackedScene).instantiate()
+	sword.scale = Vector3.ONE
+	sword.position = Vector3.ZERO
+	sword.rotation_degrees = Vector3(-125.0, 0, 0) # held ready: tip forward and up
+	_sword_attach.add_child(sword)
+	Toon.apply_model(sword, SWORD_SCALE * MODEL_SCALE, 0.02, Color.WHITE, 1.15, 0.7, 1.2)
+	_fit_sword(sword)
+
+func _fit_sword(sword: Node3D) -> void:
+	# The bone pose can carry its own scale, so measure after the skeleton has posed once and compensate.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_instance_valid(sword):
+		return
+	var first: Node = sword.find_children("*", "MeshInstance3D", true, false)[0]
+	var world_scale: float = maxf((first as Node3D).global_transform.basis.get_scale().x, 0.00001)
+	sword.scale *= SWORD_SCALE * MODEL_SCALE / world_scale
+
+# Swaps the sword in hand (used by the raid menu).
+func set_sword(id: String) -> void:
+	sword_id = id
+	_attach_sword()

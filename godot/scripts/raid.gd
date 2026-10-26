@@ -10,10 +10,11 @@ const HeroScript := preload("res://scripts/raid_hero.gd")
 const CameraScript := preload("res://scripts/raid_camera.gd")
 const HudScript := preload("res://scripts/raid_hud.gd")
 const DummyScript := preload("res://scripts/raid_dummy.gd")
+const SelectScript := preload("res://scripts/raid_select.gd")
 const BossScript := preload("res://scripts/raid_boss.gd")
 const RaidData := preload("res://data/raid.gd")
 const MENU_SCENE: String = "res://scenes/menu.tscn"
-const SKILL_KEYS: Dictionary = {KEY_Q: "slash", KEY_E: "dash", KEY_R: "rally", KEY_F: "rain"}
+const SKILL_KEYS: Dictionary = {KEY_Q: "slash", KEY_E: "dash", KEY_R: "rally", KEY_F: "rain", KEY_G: "special"}
 const START_POS := Vector3(0, 0.05, 11)
 const BOSS_POS := Vector3(0, 0.0, -13)
 
@@ -27,6 +28,8 @@ var hud: CanvasLayer
 var dummy: Node3D
 var boss: CharacterBody3D
 var boss_index: int = 0
+var select_layer: CanvasLayer
+var kind: String = "ladder" # which list the fight is from: "ladder" (the five realm guardians) or "campaign" (GB3 bosses)
 var state: State = State.OVER
 var fight_time: float = 0.0
 var over: bool = false # the fight has ended (won or lost): fight controls are off
@@ -39,6 +42,7 @@ func _ready() -> void:
 	add_child(arena)
 	arena.build()
 
+	HeroScript.sword_id = RaidData.get_sword()
 	hero = CharacterBody3D.new()
 	hero.set_script(HeroScript)
 	hero.position = START_POS
@@ -60,7 +64,7 @@ func _ready() -> void:
 	hud.attack_pressed.connect(func() -> void: _fight_input(hero.attack))
 	hud.dodge_pressed.connect(func() -> void: _fight_input(hero.dodge))
 	hud.skill_pressed.connect(func(id: String) -> void: hero.cast(id))
-	hud.menu_pressed.connect(_leave)
+	hud.menu_pressed.connect(_open_select)
 	hud.retry_pressed.connect(_retry)
 	hud.next_pressed.connect(_next)
 	hero.damaged.connect(_on_hero_damaged)
@@ -79,11 +83,11 @@ func _ready() -> void:
 		dummy.hero = hero
 		hero.position = Vector3(0, 0.05, 9)
 		state = State.FIGHT
+	elif OS.get_environment("RAID_BOSS") != "" and OS.is_debug_build():
+		kind = OS.get_environment("RAID_KIND") if OS.get_environment("RAID_KIND") != "" else "ladder"
+		_start_fight(clampi(int(OS.get_environment("RAID_BOSS")) - 1, 0, RaidData.count_for(kind) - 1))
 	else:
-		var start: int = 0
-		if OS.get_environment("RAID_BOSS") != "" and OS.is_debug_build():
-			start = clampi(int(OS.get_environment("RAID_BOSS")) - 1, 0, RaidData.BOSSES.size() - 1)
-		_start_fight(start)
+		_open_select()
 	if shot != "" and OS.is_debug_build():
 		_screenshot_later(shot)
 
@@ -113,7 +117,9 @@ func _environment() -> void:
 
 # ---------- fight flow ----------
 
-func _start_fight(index: int) -> void:
+func _start_fight(index: int, p_kind: String = "") -> void:
+	if p_kind != "":
+		kind = p_kind
 	_run_id += 1
 	var run: int = _run_id
 	boss_index = index
@@ -133,11 +139,11 @@ func _start_fight(index: int) -> void:
 	rig.yaw = 0.0
 	rig.reset_view()
 	rig.pitch = deg_to_rad(25.0)
-	rig.distance = 15.0 if RaidData.BOSSES[index]["flying"] else 14.0
+	rig.distance = 15.0 if RaidData.config_for(kind, index)["flying"] else 14.0
 	hud.set_hero_hp(hero.hp, hero.max_hp)
 	hud.set_time(0.0)
 
-	var cfg: Dictionary = RaidData.BOSSES[index]
+	var cfg: Dictionary = RaidData.config_for(kind, index)
 	boss = CharacterBody3D.new()
 	boss.set_script(BossScript)
 	boss.setup(cfg, hero)
@@ -145,9 +151,11 @@ func _start_fight(index: int) -> void:
 	boss.rotation.y = PI # facing the hero
 	add_child(boss)
 	boss.hp_changed.connect(hud.set_boss_hp)
+	boss.move_started.connect(hud.show_move)
 	boss.defeated.connect(_on_boss_defeated)
 	hud.show_boss(cfg["cn"], cfg["en"], boss.hp, boss.max_hp)
 	hud.set_best(RaidData.best_time(cfg["id"]))
+	hud.show_move(cfg.get("say", cfg["tip"]), "")
 	rig.lock_target = boss
 
 	for n in [3, 2, 1]:
@@ -169,12 +177,12 @@ func _on_boss_defeated() -> void:
 	state = State.OVER
 	over = true
 	hero.controls_enabled = false
-	var cfg: Dictionary = RaidData.BOSSES[boss_index]
+	var cfg: Dictionary = RaidData.config_for(kind, boss_index)
 	var seconds: float = fight_time
 	RaidData.record(cfg["id"], seconds)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	await get_tree().create_timer(1.6).timeout
-	hud.show_result(true, seconds, RaidData.best_time(cfg["id"]), boss_index + 1 < RaidData.BOSSES.size(), "%s  %s" % [cfg["cn"], cfg["en"]])
+	hud.show_result(true, seconds, RaidData.best_time(cfg["id"]), boss_index + 1 < RaidData.count_for(kind), "%s  %s" % [cfg["cn"], cfg["en"]])
 
 func _on_hero_died() -> void:
 	if training:
@@ -189,7 +197,7 @@ func _on_hero_died() -> void:
 	if boss != null and is_instance_valid(boss):
 		boss.active = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	var cfg: Dictionary = RaidData.BOSSES[boss_index]
+	var cfg: Dictionary = RaidData.config_for(kind, boss_index)
 	await get_tree().create_timer(1.2).timeout
 	hud.show_result(false, fight_time, 0.0, false, "%s  %s" % [cfg["cn"], cfg["en"]])
 
@@ -200,7 +208,34 @@ func _retry() -> void:
 	_start_fight(boss_index)
 
 func _next() -> void:
-	_start_fight(mini(boss_index + 1, RaidData.BOSSES.size() - 1))
+	_start_fight(mini(boss_index + 1, RaidData.count_for(kind) - 1))
+
+# The boss list. Opens before the first fight and from the Menu button; a fight in progress is stopped.
+func _open_select() -> void:
+	if select_layer != null and is_instance_valid(select_layer):
+		return
+	_run_id += 1
+	over = true
+	state = State.OVER
+	hero.controls_enabled = false
+	if boss != null and is_instance_valid(boss):
+		boss.active = false
+	hud.clear_result()
+	hud.set_center("")
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	select_layer = CanvasLayer.new()
+	select_layer.layer = 30
+	add_child(select_layer)
+	var select: Control = Control.new()
+	select.set_script(SelectScript)
+	select_layer.add_child(select)
+	select.unlock_all = OS.is_debug_build() and OS.get_environment("RAID_UNLOCK") != ""
+	select.chosen.connect(func(p_kind: String, index: int) -> void:
+		select_layer.queue_free()
+		select_layer = null
+		_start_fight(index, p_kind))
+	select.sword_changed.connect(hero.set_sword)
+	select.back_pressed.connect(_leave)
 
 func _leave() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -242,7 +277,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if not over:
 				hero.cast(SKILL_KEYS[event.keycode])
 		elif OS.is_debug_build() and event.keycode >= KEY_1 and event.keycode <= KEY_5 and not training:
-			_start_fight(clampi(event.keycode - KEY_1, 0, RaidData.BOSSES.size() - 1)) # debug: jump to a boss
+			_start_fight(clampi(event.keycode - KEY_1, 0, RaidData.BOSSES.size() - 1), "ladder") # debug: jump to a boss
 
 func _on_hero_damaged(amount: float) -> void:
 	hud.set_hero_hp(hero.hp, hero.max_hp)
@@ -257,6 +292,11 @@ func _screenshot_later(path: String) -> void:
 	var act: String = OS.get_environment("RAID_ACT")
 	if OS.get_environment("RAID_LOCK") != "":
 		rig.locked = true
+	if OS.get_environment("RAID_LOOK") == "hero":
+		rig.locked = false
+		rig.distance = 4.2
+		rig.pitch = 0.12
+		rig.yaw = float(OS.get_environment("RAID_YAW")) if OS.get_environment("RAID_YAW") != "" else 0.6
 	if OS.get_environment("RAID_LOOK") == "boss" and boss != null:
 		rig.target = boss
 		rig.locked = false

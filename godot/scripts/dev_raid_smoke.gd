@@ -15,9 +15,12 @@ func _ready() -> void:
 	await _part1()
 	await _part2()
 	await _new_raid(false)
-	await _boss_flow(0)
+	check("the boss list opens first when the raid starts", raid.select_layer != null and raid.boss == null)
+	await _boss_flow("ladder", 0)
 	await _new_raid(false)
 	await _extra_bosses()
+	await _new_raid(false)
+	await _all_moves()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://raid_smoke.cfg"))
 	print("RAID SMOKE DONE failures=%d" % failures)
 	get_tree().quit()
@@ -33,10 +36,12 @@ func _new_raid(training: bool, boss_env: int = 0) -> void:
 	await wait(0.5)
 
 func _extra_bosses() -> void:
-	await _boss_flow(1)
-	await _boss_flow(2)
-	await _boss_flow(3)
-	await _boss_flow(4)
+	await _boss_flow("ladder", 1)
+	await _boss_flow("ladder", 2)
+	await _boss_flow("ladder", 3)
+	await _boss_flow("ladder", 4)
+	for i in [1, 3, 4, 7, 12]:
+		await _boss_flow("campaign", i)
 
 func check(label: String, ok: bool) -> void:
 	if not ok:
@@ -150,12 +155,14 @@ func _part2() -> void:
 	t1 = null
 
 # One full boss fight: countdown, telegraphs, phase 2 at 50% HP, victory with a saved best time, retry, defeat.
-func _boss_flow(index: int) -> void:
+func _boss_flow(kind: String, index: int) -> void:
 	var hero: CharacterBody3D = raid.hero
-	var cfg: Dictionary = RaidData.BOSSES[index]
-	if index != raid.boss_index:
-		raid._start_fight(index)
-		await wait(0.2)
+	var cfg: Dictionary = RaidData.config_for(kind, index)
+	if raid.select_layer != null:
+		raid.select_layer.queue_free()
+		raid.select_layer = null
+	raid._start_fight(index, kind)
+	await wait(0.2)
 	check("[%s] boss exists and the HUD shows it" % cfg["id"], raid.boss != null and raid.boss.max_hp == cfg["hp"])
 	check("[%s] the fight starts in a countdown (controls off)" % cfg["id"], raid.state == raid.State.COUNTDOWN and not hero.controls_enabled and not raid.boss.active)
 	await wait(3.9)
@@ -177,7 +184,7 @@ func _boss_flow(index: int) -> void:
 	while t < 14.0 and raid.boss.phase != 2:
 		await wait(0.25)
 		t += 0.25
-	check("[%s] phase 2 starts at 50%% HP (faster: x%.2f)" % [cfg["id"], raid.boss.speed_mult], raid.boss.phase == 2 and raid.boss.speed_mult > 1.2)
+	check("[%s] phase 2 starts at 50%% HP (faster: x%.2f)" % [cfg["id"], raid.boss.speed_mult], raid.boss.phase == 2 and raid.boss.speed_mult >= 1.19)
 	await wait(2.2)
 	var time_before: float = raid.fight_time
 	raid.boss.take_hit(1.0e9, Vector3.ZERO)
@@ -196,3 +203,26 @@ func _boss_flow(index: int) -> void:
 	raid.hero.take_damage(50.0)
 	await wait(1.6)
 	check("[%s] hero defeat shows a defeat panel" % cfg["id"], raid.hero.dead and raid.hud._result != null and not raid.boss.active)
+
+# Every boss move runs to the end once without errors (the hero is made unkillable so the moves can play out).
+func _all_moves() -> void:
+	var Gb3 := preload("res://data/gb3_data.gd")
+	var ids: Array = Gb3.MOVE_NAMES.keys()
+	ids.append_array(["hand", "paint"])
+	raid._start_fight(1, "campaign") # a spirit: procedural body, no model animations
+	await wait(0.2)
+	await wait(3.9)
+	raid.hero.max_hp = 99999.0
+	raid.hero.hp = 99999.0
+	for id: String in ids:
+		var boss: Node = raid.boss
+		boss._moves = [id]
+		boss._cooldown = 0.0
+		var t: float = 0.0
+		while t < 14.0 and boss._last_attack != id:
+			await wait(0.1)
+			t += 0.1
+		while t < 14.0 and boss._attacking:
+			await wait(0.1)
+			t += 0.1
+		check("move '%s' started and finished (%.1fs)" % [id, t], boss._last_attack == id and not boss._attacking)

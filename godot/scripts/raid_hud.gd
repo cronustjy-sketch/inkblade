@@ -18,8 +18,8 @@ const RED := Color("e0463b")
 const CREAM := Color("fff3d1")
 const NAVY := Color("1f2a4d")
 const SKY := Color("9fd8ff")
-const SKILLS: Array[String] = ["slash", "dash", "rally", "rain"]
-const GLYPH: Dictionary = {"slash": "斩", "dash": "冲", "rally": "吼", "rain": "雨"}
+const SKILLS: Array[String] = ["slash", "dash", "rally", "rain", "special"]
+const GLYPH: Dictionary = {"slash": "斩", "dash": "冲", "rally": "吼", "rain": "雨", "special": "旋"}
 
 static var _disc_tex: ImageTexture
 
@@ -44,6 +44,8 @@ var _damage_flash: ColorRect
 var _hint: Label
 var _result: Control
 var _best_label: Label
+var _move_label: Label
+var _move_tween: Tween
 
 func _init() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -98,6 +100,16 @@ func flash_damage() -> void:
 
 func set_time(seconds: float) -> void:
 	_timer_label.text = "%d:%05.2f" % [floori(seconds / 60.0), fmod(seconds, 60.0)]
+
+# Shows the boss move that just started ("冲锋 · 往旁边闪") under the health bar for a moment.
+func show_move(name_cn: String, tip: String) -> void:
+	_move_label.text = "%s · %s" % [name_cn, tip] if tip != "" else name_cn
+	_move_label.modulate.a = 1.0
+	if _move_tween != null and _move_tween.is_valid():
+		_move_tween.kill()
+	_move_tween = create_tween()
+	_move_tween.tween_interval(1.4)
+	_move_tween.tween_property(_move_label, "modulate:a", 0.0, 0.5)
 
 func set_center(text: String, size: int = 96) -> void:
 	_center_label.text = text
@@ -187,6 +199,10 @@ func _build_top() -> void:
 	name_row.add_child(_boss_phase)
 	_boss_bar = _bar(RED, 26)
 	_boss_box.add_child(_boss_bar)
+	_move_label = _outlined("", 22, Color("ffb09a"), 6)
+	_move_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_move_label.modulate.a = 0.0
+	_boss_box.add_child(_move_label)
 
 	_best_label = _outlined("", 15, Color("ffe9a8"), 5)
 	_best_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
